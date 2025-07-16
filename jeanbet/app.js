@@ -13,7 +13,7 @@ function App() {
   useEffect(() => {
     const checkAdmin = async () => {
       const user = await Telegram.WebApp.initDataUnsafe.user;
-      if (user && user.username === 'YOUR_ADMIN_USERNAME') {
+      if (user && user.username === '@bus1o') {
         setIsAdmin(true);
       }
     };

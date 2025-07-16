@@ -1,9 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { MongoClient } = require('mongodb');
-const { TonClient } = require('ton');
+const { Pool } = require('pg');
 const TelegramBot = require('node-telegram-bot-api');
+const crypto = require('crypto');
 
 const app = express();
 app.use(cors());
@@ -11,309 +11,211 @@ app.use(express.json());
 
 // Конфигурация
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
-const TON_API_KEY = process.env.TON_API_KEY;
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const TELEGRAM_BOT_TOKEN = '8040187426:AAGG7YZMryaLNch-JenpHmowS0O-0YIiAPY';
+const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID;
+const YOOKASSA_SECRET_KEY = process.env.YOOKASSA_SECRET_KEY;
+const ADMIN_USERNAME = 'bus1o';
 
-// Инициализация клиентов
-const tonClient = new TonClient({
-    endpoint: 'https://toncenter.com/api/v2/jsonRPC',
-    apiKey: "3378b0905d1a437a13a0e8413803b53dfcbbc555a3b62515bf431542ae8a5668"
+// Подключение к PostgreSQL (используем Supabase)
+const pool = new Pool({
+  connectionString: process.env.POSTGRES_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
-let db;
-let bot;
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
-async function connectDB() {
-    const client = new MongoClient(MONGODB_URI);
-    await client.connect();
-    db = client.db('ton-racing');
-    console.log('Connected to MongoDB');
+// Инициализация БД
+async function initDB() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        telegram_id BIGINT PRIMARY KEY,
+        username TEXT,
+        balance DECIMAL(10,2) DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      
+      CREATE TABLE IF NOT EXISTS bets (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT REFERENCES users(telegram_id),
+        amount DECIMAL(10,2),
+        racer_id INTEGER,
+        odds DECIMAL(4,2),
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    console.log('Database initialized');
+  } catch (err) {
+    console.error('Database init error:', err);
+  }
 }
 
-if (TELEGRAM_BOT_TOKEN) {
-    bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
-}
+// API для создания платежа в ЮКассу
+app.post('/api/create-payment', async (req, res) => {
+  const { userId, amount } = req.body;
+  
+  if (amount < 100) {
+    return res.status(400).json({ error: 'Минимальная сумма 100 рублей' });
+  }
 
-// Middleware для аутентификации администратора
-const adminAuth = async (req, res, next) => {
-    try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader) {
-            return res.status(401).json({ error: 'Authorization header missing' });
-        }
-        
-        // В реальном приложении используйте JWT или другой метод аутентификации
-        const user = JSON.parse(authHeader);
-        if (user.username !== ADMIN_USERNAME) {
-            return res.status(403).json({ error: 'Forbidden' });
-        }
-        
-        next();
-    } catch (error) {
-        console.error('Admin auth error:', error);
-        res.status(500).json({ error: 'Authentication failed' });
-    }
-};
+  const paymentData = {
+    amount: { value: amount.toFixed(2), currency: 'RUB' },
+    capture: true,
+    confirmation: {
+      type: 'redirect',
+      return_url: 'https://jeanbet-1-j9dw-eight.vercel.app/success'
+    },
+    description: `Пополнение баланса на ${amount} руб.`,
+    metadata: { userId }
+  };
+
+  const idempotenceKey = crypto.randomBytes(16).toString('hex');
+  const auth = Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
+
+  try {
+    const yooResponse = await fetch('https://api.yookassa.ru/v3/payments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${auth}`,
+        'Idempotence-Key': idempotenceKey
+      },
+      body: JSON.stringify(paymentData)
+    });
+    
+    const data = await yooResponse.json();
+    res.json({ url: data.confirmation.confirmation_url });
+  } catch (err) {
+    console.error('Payment error:', err);
+    res.status(500).json({ error: 'Ошибка создания платежа' });
+  }
+});
+
+// Вебхук для ЮКассы
+app.post('/api/yookassa-webhook', async (req, res) => {
+  if (req.body.event === 'payment.succeeded') {
+    const payment = req.body.object;
+    const userId = payment.metadata.userId;
+    const amount = parseFloat(payment.amount.value);
+
+    await pool.query(
+      'UPDATE users SET balance = balance + $1 WHERE telegram_id = $2',
+      [amount, userId]
+    );
+
+    bot.sendMessage(userId, `✅ Баланс пополнен на ${amount} руб.!`);
+  }
+  res.sendStatus(200);
+});
 
 // API для ставок
 app.post('/api/bets', async (req, res) => {
-    try {
-        const { userId, amount, racerId, currency, txHash, raceId } = req.body;
-        
-        // Проверка минимальной ставки
-        if (amount < 1) {
-            return res.status(400).json({ error: 'Minimum bet is 1 TON/Star' });
-        }
-        
-        // Проверка баланса для Stars
-        if (currency === 'stars') {
-            const user = await db.collection('users').findOne({ telegramId: userId });
-            if (!user || user.balance < amount) {
-                return res.status(400).json({ error: 'Insufficient Stars balance' });
-            }
-        }
-        
-        // Проверка транзакции для TON
-        if (currency === 'ton' && txHash) {
-            const tx = await tonClient.getTransaction(CONTRACT_ADDRESS, txHash);
-            if (!tx) {
-                return res.status(400).json({ error: 'Transaction not found' });
-            }
-        }
-        
-        // Сохранение ставки
-        const bet = {
-            userId,
-            amount,
-            racerId,
-            raceId: raceId || 'default',
-            currency,
-            status: 'pending',
-            createdAt: new Date(),
-            updatedAt: new Date()
-        };
-        
-        const result = await db.collection('bets').insertOne(bet);
-        
-        // Обновление баланса для Stars
-        if (currency === 'stars') {
-            await db.collection('users').updateOne(
-                { telegramId: userId },
-                { $inc: { balance: -amount } }
-            );
-        }
-        
-        res.status(201).json({ 
-            success: true, 
-            betId: result.insertedId 
-        });
-        
-    } catch (error) {
-        console.error('Error placing bet:', error);
-        res.status(500).json({ error: 'Internal server error' });
+  const { userId, amount, racerId } = req.body;
+  
+  try {
+    // Проверка баланса
+    const user = await pool.query(
+      'SELECT balance FROM users WHERE telegram_id = $1',
+      [userId]
+    );
+    
+    if (user.rows.length === 0 || user.rows[0].balance < amount) {
+      return res.status(400).json({ error: 'Недостаточно средств' });
     }
-});
 
-// API для депозита Stars
-app.post('/api/deposit/stars', async (req, res) => {
-    try {
-        const { userId, amount, paymentId } = req.body;
-        
-        if (amount <= 0) {
-            return res.status(400).json({ error: 'Invalid amount' });
-        }
-        
-        // В реальном приложении здесь должна быть проверка платежа через Telegram API
-        // Для демо просто добавляем баланс
-        
-        await db.collection('users').updateOne(
-            { telegramId: userId },
-            { $inc: { balance: amount } },
-            { upsert: true }
-        );
-        
-        // Запись транзакции
-        await db.collection('transactions').insertOne({
-            userId,
-            type: 'deposit',
-            amount,
-            currency: 'stars',
-            status: 'completed',
-            paymentId,
-            createdAt: new Date()
-        });
-        
-        res.status(200).json({ success: true });
-        
-    } catch (error) {
-        console.error('Deposit error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
+    // Коэффициенты с маржой 10%
+    const odds = {
+      '1': 1.85,
+      '2': 2.10
+    };
 
-// API для вывода Stars
-app.post('/api/withdraw', async (req, res) => {
-    try {
-        const { userId, amount } = req.body;
-        
-        // Проверка баланса
-        const user = await db.collection('users').findOne({ telegramId: userId });
-        if (!user || user.balance < amount) {
-            return res.status(400).json({ error: 'Insufficient balance' });
-        }
-        
-        // Создание запроса на вывод
-        const withdrawal = {
-            userId,
-            amount,
-            currency: 'stars',
-            status: 'pending',
-            createdAt: new Date()
-        };
-        
-        await db.collection('withdrawals').insertOne(withdrawal);
-        
-        // Резервирование средств
-        await db.collection('users').updateOne(
-            { telegramId: userId },
-            { $inc: { balance: -amount } }
-        );
-        
-        // В реальном приложении здесь будет обработка вывода
-        // Для демо просто отмечаем как выполненный
-        setTimeout(async () => {
-            await db.collection('withdrawals').updateOne(
-                { _id: withdrawal._id },
-                { $set: { status: 'completed', completedAt: new Date() } }
-            );
-            
-            if (bot) {
-                bot.sendMessage(
-                    userId,
-                    `Your withdrawal of ${amount} Stars has been processed!`
-                );
-            }
-        }, 5000);
-        
-        res.status(200).json({ 
-            success: true,
-            message: `Withdrawal request for ${amount} Stars received`
-        });
-        
-    } catch (error) {
-        console.error('Withdrawal error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+    // Создание ставки
+    await pool.query(
+      'INSERT INTO bets (user_id, amount, racer_id, odds) VALUES ($1, $2, $3, $4)',
+      [userId, amount, racerId, odds[racerId]]
+    );
+
+    // Списание средств
+    await pool.query(
+      'UPDATE users SET balance = balance - $1 WHERE telegram_id = $2',
+      [amount, userId]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Bet error:', err);
+    res.status(500).json({ error: 'Ошибка приема ставки' });
+  }
 });
 
 // API для админа - объявление победителя
-app.post('/api/admin/declare-winner', adminAuth, async (req, res) => {
-    try {
-        const { raceId, winner } = req.body;
+app.post('/api/settle-bets', async (req, res) => {
+  const { winner } = req.body;
+  const user = req.body.user;
+  
+  if (user?.username !== ADMIN_USERNAME) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    // Находим все активные ставки
+    const bets = await pool.query(
+      'SELECT * FROM bets WHERE status = $1',
+      ['pending']
+    );
+
+    for (const bet of bets.rows) {
+      if (bet.racer_id === winner) {
+        const winAmount = bet.amount * bet.odds;
         
-        // Получаем все ставки для этой гонки
-        const bets = await db.collection('bets')
-            .find({ raceId, status: 'pending' })
-            .toArray();
+        // Начисляем выигрыш
+        await pool.query(
+          'UPDATE users SET balance = balance + $1 WHERE telegram_id = $2',
+          [winAmount, bet.user_id]
+        );
         
-        // Обрабатываем каждую ставку
-        for (const bet of bets) {
-            if (bet.racerId === winner) {
-                // Расчет выигрыша
-                const odds = bet.racerId === '1' ? 1.85 : 2.10;
-                const winAmount = Math.floor(bet.amount * odds);
-                
-                // Начисление выигрыша
-                await db.collection('users').updateOne(
-                    { telegramId: bet.userId },
-                    { $inc: { balance: winAmount } }
-                );
-                
-                // Обновление статуса ставки
-                await db.collection('bets').updateOne(
-                    { _id: bet._id },
-                    { $set: { status: 'won', winAmount, updatedAt: new Date() } }
-                );
-                
-                // Уведомление пользователя
-                if (bot) {
-                    bot.sendMessage(
-                        bet.userId,
-                        `🎉 You won ${winAmount} Stars on race ${raceId}!`
-                    );
-                }
-            } else {
-                // Отмечаем как проигранную
-                await db.collection('bets').updateOne(
-                    { _id: bet._id },
-                    { $set: { status: 'lost', updatedAt: new Date() } }
-                );
-                
-                if (bot) {
-                    bot.sendMessage(
-                        bet.userId,
-                        `😢 Your bet on race ${raceId} didn't win. Better luck next time!`
-                    );
-                }
-            }
-        }
+        // Обновляем статус ставки
+        await pool.query(
+          'UPDATE bets SET status = $1, updated_at = NOW() WHERE id = $2',
+          ['won', bet.id]
+        );
         
-        res.status(200).json({ 
-            success: true,
-            message: `Winner for race ${raceId} declared successfully`
-        });
-        
-    } catch (error) {
-        console.error('Error declaring winner:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        // Уведомляем пользователя
+        bot.sendMessage(bet.user_id, `🎉 Вы выиграли ${winAmount.toFixed(2)} руб.!`);
+      } else {
+        await pool.query(
+          'UPDATE bets SET status = $1, updated_at = NOW() WHERE id = $2',
+          ['lost', bet.id]
+        );
+      }
     }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Settle error:', err);
+    res.status(500).json({ error: 'Ошибка обработки ставок' });
+  }
 });
 
-// API для получения истории ставок
-app.get('/api/bets/:userId', async (req, res) => {
-    try {
-        const { userId } = req.params;
-        const { limit = 10, offset = 0 } = req.query;
-        
-        const bets = await db.collection('bets')
-            .find({ userId })
-            .sort({ createdAt: -1 })
-            .skip(parseInt(offset))
-            .limit(parseInt(limit))
-            .toArray();
-            
-        res.status(200).json(bets);
-    } catch (error) {
-        console.error('Error fetching bets:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+// Проверка роли пользователя
+app.get('/api/check-role', async (req, res) => {
+  const userId = req.query.userId;
+  const user = await pool.query(
+    'SELECT username FROM users WHERE telegram_id = $1',
+    [userId]
+  );
+  
+  res.json({
+    isAdmin: user.rows[0]?.username === ADMIN_USERNAME
+  });
 });
 
-// API для получения баланса
-app.get('/api/balance/:userId', async (req, res) => {
-    try {
-        const { userId } = req.params;
-        
-        const user = await db.collection('users').findOne({ telegramId: userId });
-        const balance = user ? user.balance : 0;
-        
-        res.status(200).json({ balance });
-    } catch (error) {
-        console.error('Error fetching balance:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
-
-// Запуск сервера
-connectDB().then(() => {
-    app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-    });
-});
-
-process.on('unhandledRejection', (err) => {
-    console.error('Unhandled rejection:', err);
+// Инициализация и запуск
+initDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    bot.setWebHook(`https://jeanbet-1-j9dw-eight.vercel.app/bot${TELEGRAM_BOT_TOKEN}`);
+  });
 });
