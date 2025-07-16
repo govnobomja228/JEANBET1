@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏎️ TON Racing Club</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --tg-bg: var(--tg-theme-bg-color, #17212b);
+            --tg-text: var(--tg-theme-text-color, #ffffff);
+            --tg-hint: var(--tg-theme-hint-color, #708499);
+            --tg-primary: var(--tg-theme-button-color, #2ea6ff);
+            --tg-text-primary: var(--tg-theme-button-text-color, #ffffff);
+            --tg-secondary: var(--tg-theme-secondary-bg-color, #1e2c3a);
+            --tg-section: var(--tg-theme-section-bg-color, #1e2c3a);
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--tg-bg);
+            color: var(--tg-text);
+            min-height: 100vh;
+            padding: 16px;
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding-bottom: 60px;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #0088cc, #00b6ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            display: flex;
+            align-items: center;
+        }
+        
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 8px;
+        }
+        
+        .balance-card {
+            background: var(--tg-section);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .balance-info {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .balance-label {
+            font-size: 14px;
+            color: var(--tg-hint);
+            margin-bottom: 4px;
+        }
+        
+        .balance-amount {
+            font-size: 24px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+        }
+        
+        .balance-currency {
+            font-size: 16px;
+            margin-left: 4px;
+            color: var(--tg-hint);
+        }
+        
+        .connect-btn {
+            background: var(--tg-primary);
+            color: var(--tg-text-primary);
+            border: none;
+            border-radius: 10px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .connect-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .section {
+            background: var(--tg-section);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-title svg {
+            margin-right: 8px;
+        }
+        
+        .input-group {
+            margin-bottom: 16px;
+        }
+        
+        .input-label {
+            display: block;
+            font-size: 14px;
+            color: var(--tg-hint);
+            margin-bottom: 8px;
+        }
+        
+        .input-field {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-size: 16px;
+            color: var(--tg-text);
+            transition: all 0.2s;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: var(--tg-primary);
+            box-shadow: 0 0 0 2px rgba(46, 166, 255, 0.2);
+        }
+        
+        .racers-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 16px 0;
+        }
+        
+        .racer-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .racer-card:hover {
+            background: rgba(46, 166, 255, 0.1);
+        }
+        
+        .racer-card.selected {
+            border-color: var(--tg-primary);
+            background: rgba(46, 166, 255, 0.2);
+        }
+        
+        .racer-image {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .racer-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+            text-align: center;
+        }
+        
+        .racer-odds {
+            font-size: 14px;
+            color: var(--tg-primary);
+            font-weight: 700;
+        }
+        
+        .action-btn {
+            width: 100%;
+            background: var(--tg-primary);
+            color: var(--tg-text-primary);
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 8px;
+        }
+        
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .action-btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+        
+        .payment-methods {
+            display: flex;
+            gap: 8px;
+            margin: 16px 0;
+        }
+        
+        .payment-method {
+            flex: 1;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .payment-method.selected {
+            border-color: var(--tg-primary);
+            background: rgba(46, 166, 255, 0.1);
+        }
+        
+        .payment-icon {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .payment-name {
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-message {
+            padding: 12px;
+            border-radius: 12px;
+            margin: 16px 0;
+            font-size: 14px;
+            text-align: center;
+            display: none;
+        }
+        
+        .status-success {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+            display: block;
+        }
+        
+        .status-error {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+            display: block;
+        }
+        
+        .status-loading {
+            color: var(--tg-primary);
+            display: block;
+        }
+        
+        .history-item {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .history-amount {
+            font-weight: 500;
+        }
+        
+        .history-amount.win {
+            color: #4caf50;
+        }
+        
+        .history-amount.lose {
+            color: #f44336;
+        }
+        
+        .history-details {
+            font-size: 12px;
+            color: var(--tg-hint);
+        }
+        
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--tg-section);
+            display: flex;
+            padding: 8px 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .tab-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px;
+            color: var(--tg-hint);
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .tab-btn.active {
+            color: var(--tg-primary);
+        }
+        
+        .tab-icon {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 4px;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Анимации */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="url(#gradient)">
+                    <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#0088cc" />
+                            <stop offset="100%" stop-color="#00b6ff" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.2 6l-1.4 6.6c-.1.4-.4.7-.8.7h-2.7c-.3 0-.6.2-.7.5l-.4 1.8c-.1.3-.4.5-.7.5H9.1c-.4 0-.7-.3-.7-.7V7.7c0-.4.3-.7.7-.7h7.5c.4 0 .7.3.6.7z"/>
+                </svg>
+                TON Racing
+            </div>
+            <button id="connect-wallet" class="connect-btn">Connect</button>
+        </header>
+        
+        <div id="wallet-info" class="balance-card hidden">
+            <div class="balance-info">
+                <span class="balance-label">Your balance</span>
+                <div class="balance-amount">
+                    <span id="balance-amount">0</span>
+                    <span class="balance-currency" id="balance-currency">TON</span>
+                </div>
+            </div>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        
+        <!-- Вкладка ставок -->
+        <div id="bet-tab">
+            <div class="section">
+                <div class="section-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Place a Bet
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label" for="bet-amount">Bet Amount</label>
+                    <input type="number" id="bet-amount" class="input-field" min="1" value="1" step="1">
+                </div>
+                
+                <div class="payment-methods">
+                    <div class="payment-method" id="payment-ton">
+                        <svg class="payment-icon" viewBox="0 0 24 24" fill="#0088CC">
+                            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm5.2 6l-1.4 6.6c-.1.4-.4.7-.8.7h-2.7c-.3 0-.6.2-.7.5l-.4 1.8c-.1.3-.4.5-.7.5H9.1c-.4 0-.7-.3-.7-.7V7.7c0-.4.3-.7.7-.7h7.5c.4 0 .7.3.6.7z"/>
+                        </svg>
+                        <span class="payment-name">TON</span>
+                    </div>
+                    <div class="payment-method" id="payment-stars">
+                        <svg class="payment-icon" viewBox="0 0 24 24" fill="#2AABEE">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.2 1.58-.98 5.42-1.38 7.19-.14.6-.42.8-.68.8-.58 0-1.02-.38-1.58-.74-.88-.58-1.38-.94-2.24-1.5-.99-.63-.35-1.02.22-1.61.15-.15 2.71-2.48 2.76-2.69.03-.1.05-.2-.04-.3-.1-.1-.24-.06-.35-.04-.15.05-2.53 1.62-7.12 4.74-.68.46-1.3.68-1.98.68-.66 0-1.71-.32-2.55-1.14-.93-.93-1.78-2.6-2.38-4.74-.25-.88.25-1.27.88-1.32.22-.02.72.05 1.1.35.74.58 2.46 1.71 2.77 1.91.58.36 1.04.32 1.44-.1.44-.45 1.06-1.25 1.62-1.99.5-.66 1-1.32 1.58-1.1.4.15.25 1.48 1.42 1.7 1.88.2.45.6 1.14 1.9 1.14h.44c.1-.03.3-.1.5-.3.2-.2.25-.5.3-.7z"/>
+                        </svg>
+                        <span class="payment-name">Stars</span>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Select Racer</label>
+                    <div class="racers-grid">
+                        <div class="racer-card" id="racer-1" data-id="1">
+                            <img src="https://via.placeholder.com/64?text=MV" alt="Max Verstappen" class="racer-image">
+                            <div class="racer-name">Max Verstappen</div>
+                            <div class="racer-odds">x1.85</div>
+                        </div>
+                        <div class="racer-card" id="racer-2" data-id="2">
+                            <img src="https://via.placeholder.com/64?text=LH" alt="Lewis Hamilton" class="racer-image">
+                            <div class="racer-name">Lewis Hamilton</div>
+                            <div class="racer-odds">x2.10</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="potential-win" style="text-align: center; margin: 16px 0; color: var(--tg-hint);">
+                    Potential win: <span style="color: var(--tg-primary); font-weight: 500;">0</span>
+                </div>
+                
+                <button id="place-bet" class="action-btn" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="margin-right: 8px;">
+                        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 8V12L16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Place Bet
+                </button>
+                
+                <div id="status-message" class="status-message"></div>
+            </div>
+        </div>
+        
+        <!-- Вкладка истории -->
+        <div id="history-tab" class="hidden">
+            <div class="section">
+                <div class="section-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M8 7V3M16 7V3M7 11H17M5 21H19C20.1046 21 21 20.1046 21 19V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V19C3 20.1046 3.89543 21 5 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Bet History
+                </div>
+                
+                <div id="history-list">
+                    <div class="history-item">
+                        <div>
+                            <div class="history-amount win">+5.55 TON</div>
+                            <div class="history-details">Max Verstappen • 3 TON</div>
+                        </div>
+                        <div class="history-details">Today, 14:30</div>
+                    </div>
+                    <div class="history-item">
+                        <div>
+                            <div class="history-amount lose">-2.00 TON</div>
+                            <div class="history-details">Lewis Hamilton • 2 TON</div>
+                        </div>
+                        <div class="history-details">Yesterday, 21:15</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Вкладка профиля -->
+        <div id="profile-tab" class="hidden">
+            <div class="section">
+                <div class="section-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Profile
+                </div>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <img src="https://via.placeholder.com/80?text=User" alt="Profile" style="width: 80px; height: 80px; border-radius: 50%; border: 2px solid var(--tg-primary);">
+                    <div style="margin-top: 12px; font-weight: 500;" id="user-name">User</div>
+                    <div style="font-size: 14px; color: var(--tg-hint); margin-top: 4px;" id="user-wallet">Not connected</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0;">
+                    <div style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; text-align: center;">
+                        <div style="font-size: 14px; color: var(--tg-hint);">Total Bets</div>
+                        <div style="font-size: 24px; font-weight: 700;" id="total-bets">12</div>
+                    </div>
+                    <div style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 16px; text-align: center;">
+                        <div style="font-size: 14px; color: var(--tg-hint);">Total Won</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #4caf50;" id="total-won">42.5</div>
+                    </div>
+                </div>
+                
+                <button class="action-btn" style="background: rgba(244, 67, 54, 0.2); color: #f44336;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="margin-right: 8px;">
+                        <path d="M16 17L21 12M21 12L16 7M21 12H3M13 3.00023C13.8499 2.95699 14.7008 3.01456 15.5355 3.17145C18.2497 3.70313 20.2969 5.75033 20.8286 8.46455C20.9854 9.29921 21.043 10.1501 20.9998 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Disconnect Wallet
+                </button>
+            </div>
+        </div>
+        
+        <!-- Нижняя панель навигации -->
+        <div class="tab-bar">
+            <div class="tab-btn active" data-tab="bet-tab">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 21H15C19.9706 21 24 16.9706 24 12C24 7.02944 19.9706 3 15 3H9C4.02944 3 0 7.02944 0 12C0 16.9706 4.02944 21 9 21Z" fill="currentColor"/>
+                    <path d="M15 12C15 13.6569 13.6569 15 12 15C10.3431 15 9 13.6569 9 12C9 10.3431 10.3431 9 12 9C13.6569 9 15 10.3431 15 12Z" fill="var(--tg-bg)"/>
+                </svg>
+                Bet
+            </div>
+            <div class="tab-btn" data-tab="history-tab">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 6C3 4.34315 4.34315 3 6 3H8C9.65685 3 11 4.34315 11 6V8C11 9.65685 9.65685 11 8 11H6C4.34315 11 3 9.65685 3 8V6Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M13 6C13 4.34315 14.3431 3 16 3H18C19.6569 3 21 4.34315 21 6V8C21 9.65685 19.6569 11 18 11H16C14.3431 11 13 9.65685 13 8V6Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M3 16C3 14.3431 4.34315 13 6 13H8C9.65685 13 11 14.3431 11 16V18C11 19.6569 9.65685 21 8 21H6C4.34315 21 3 19.6569 3 18V16Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M13 16C13 14.3431 14.3431 13 16 13H18C19.6569 13 21 14.3431 21 16V18C21 19.6569 19.6569 21 18 21H16C14.3431 21 13 19.6569 13 18V16Z" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                History
+            </div>
+            <div class="tab-btn" data-tab="profile-tab">
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" stroke="currentColor" stroke-width="2"/>
+                    <path d="M20.5899 22C20.5899 18.13 16.7399 15 11.9999 15C7.25991 15 3.40991 18.13 3.40991 22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Profile
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация Telegram Web App
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.enableClosingConfirmation();
+        
+        // Установка цвета темы
+        document.documentElement.style.setProperty('--tg-bg', tg.themeParams.bg_color || '#17212b');
+        document.documentElement.style.setProperty('--tg-text', tg.themeParams.text_color || '#ffffff');
+        document.documentElement.style.setProperty('--tg-hint', tg.themeParams.hint_color || '#708499');
+        document.documentElement.style.setProperty('--tg-primary', tg.themeParams.button_color || '#2ea6ff');
+        document.documentElement.style.setProperty('--tg-text-primary', tg.themeParams.button_text_color || '#ffffff');
+        document.documentElement.style.setProperty('--tg-secondary', tg.themeParams.secondary_bg_color || '#1e2c3a');
+        
+        // Инициализация TonConnect
+        const connector = new TonConnect.TonConnect({
+            manifestUrl: 'https://yourdomain.com/tonconnect-manifest.json'
+        });
+        
+        // Состояние приложения
+        const state = {
+            wallet: null,
+            balance: 0,
+            paymentMethod: 'ton', // 'ton' или 'stars'
+            selectedRacer: null,
+            bets: [],
+            profile: {
+                name: 'User',
+                totalBets: 0,
+                totalWon: 0
+            }
+        };
+        
+        // Элементы DOM
+        const elements = {
+            connectBtn: document.getElementById('connect-wallet'),
+            walletInfo: document.getElementById('wallet-info'),
+            balanceAmount: document.getElementById('balance-amount'),
+            balanceCurrency: document.getElementById('balance-currency'),
+            betAmount: document.getElementById('bet-amount'),
+            paymentTon: document.getElementById('payment-ton'),
+            paymentStars: document.getElementById('payment-stars'),
+            racer1: document.getElementById('racer-1'),
+            racer2: document.getElementById('racer-2'),
+            placeBetBtn: document.getElementById('place-bet'),
+            potentialWin: document.querySelector('#potential-win span'),
+            statusMessage: document.getElementById('status-message'),
+            userName: document.getElementById('user-name'),
+            userWallet: document.getElementById('user-wallet'),
+            totalBets: document.getElementById('total-bets'),
+            totalWon: document.getElementById('total-won'),
+            historyList: document.getElementById('history-list'),
+            tabs: {
+                bet: document.getElementById('bet-tab'),
+                history: document.getElementById('history-tab'),
+                profile: document.getElementById('profile-tab')
+            }
+        };
+        
+        // Инициализация приложения
+        async function initApp() {
+            // Загрузка сохраненных данных
+            loadFromStorage();
+            
+            // Настройка обработчиков событий
+            setupEventListeners();
+            
+            // Проверка подключения Telegram
+            if (tg.initDataUnsafe.user) {
+                state.profile.name = tg.initDataUnsafe.user.first_name || 'User';
+                elements.userName.textContent = state.profile.name;
+                
+                // Проверка баланса Stars
+                if (tg.cloudStorage) {
+                    const starsBalance = await tg.cloudStorage.getItem('stars_balance');
+                    if (starsBalance !== null) {
+                        state.balance = parseInt(starsBalance);
+                        state.paymentMethod = 'stars';
+                        updateBalanceDisplay();
+                    }
+                }
+            }
+            
+            // Проверка подключенного кошелька
+            const walletConnectionSource = {
+                jsBridgeKey: 'tonconnect'
+            };
+            
+            connector.connect(walletConnectionSource);
+            
+            connector.onStatusChange((wallet) => {
+                if (wallet) {
+                    state.wallet = wallet;
+                    fetchTonBalance();
+                    updateUI();
+                }
+            });
+        }
+        
+        // Загрузка данных из localStorage
+        function loadFromStorage() {
+            const savedData = localStorage.getItem('tonRacingApp');
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                state.bets = data.bets || [];
+                state.profile = data.profile || state.profile;
+                
+                updateHistoryList();
+                updateProfileStats();
+            }
+        }
+        
+        // Сохранение данных в localStorage
+        function saveToStorage() {
+            const data = {
+                bets: state.bets,
+                profile: state.profile
+            };
+            localStorage.setItem('tonRacingApp', JSON.stringify(data));
+        }
+        
+        // Настройка обработчиков событий
+        function setupEventListeners() {
+            // Подключение кошелька
+            elements.connectBtn.addEventListener('click', () => {
+                if (state.wallet) {
+                    disconnectWallet();
+                } else {
+                    connectWallet();
+                }
+            });
+            
+            // Выбор способа оплаты
+            elements.paymentTon.addEventListener('click', () => {
+                state.paymentMethod = 'ton';
+                updatePaymentMethod();
+                if (state.wallet) {
+                    fetchTonBalance();
+                }
+            });
+            
+            elements.paymentStars.addEventListener('click', () => {
+                state.paymentMethod = 'stars';
+                updatePaymentMethod();
+                fetchStarsBalance();
+            });
+            
+            // Выбор гонщика
+            elements.racer1.addEventListener('click', () => {
+                state.selectedRacer = 1;
+                updateRacerSelection();
+                updatePotentialWin();
+            });
+            
+            elements.racer2.addEventListener('click', () => {
+                state.selectedRacer = 2;
+                updateRacerSelection();
+                updatePotentialWin();
+            });
+            
+            // Изменение суммы ставки
+            elements.betAmount.addEventListener('input', () => {
+                updatePotentialWin();
+                validateBet();
+            });
+            
+            // Размещение ставки
+            elements.placeBetBtn.addEventListener('click', placeBet);
+            
+            // Переключение вкладок
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.getAttribute('data-tab');
+                    switchTab(tabId);
+                });
+            });
+        }
+        
+        // Подключение кошелька
+        async function connectWallet() {
+            try {
+                const walletConnectionSource = {
+                    jsBridgeKey: 'tonconnect'
+                };
+                
+                await connector.connect(walletConnectionSource);
+                
+                showStatus('Connecting to wallet...', 'loading');
+            } catch (error) {
+                showStatus('Connection failed: ' + error.message, 'error');
+            }
+        }
+        
+        // Отключение кошелька
+        function disconnectWallet() {
+            connector.disconnect();
+            state.wallet = null;
+            updateUI();
+            showStatus('Wallet disconnected', 'success');
+        }
+        
+        // Получение баланса TON
+        async function fetchTonBalance() {
+            try {
+                if (!state.wallet) return;
+                
+                const provider = new TonConnect.TonProvider(connector);
+                const balance = await provider.getBalance(state.wallet.account.address);
+                state.balance = parseFloat(balance) / 1000000000; // Конвертация нанотонов в TON
+                updateBalanceDisplay();
+            } catch (error) {
+                console.error('Error fetching balance:', error);
+            }
+        }
+        
+        // Получение баланса Stars
+        async function fetchStarsBalance() {
+            if (tg.cloudStorage) {
+                const balance = await tg.cloudStorage.getItem('stars_balance');
+                state.balance = balance ? parseInt(balance) : 0;
+                updateBalanceDisplay();
+            }
+        }
+        
+        // Обновление отображения баланса
+        function updateBalanceDisplay() {
+            elements.balanceAmount.textContent = state.balance.toFixed(2);
+            elements.balanceCurrency.textContent = state.paymentMethod === 'ton' ? 'TON' : 'Stars';
+            
+            if (state.wallet || state.paymentMethod === 'stars') {
+                elements.walletInfo.classList.remove('hidden');
+                elements.connectBtn.textContent = 'Connected';
+            } else {
+                elements.walletInfo.classList.add('hidden');
+                elements.connectBtn.textContent = 'Connect';
+            }
+        }
+        
+        // Обновление выбора способа оплаты
+        function updatePaymentMethod() {
+            elements.paymentTon.classList.toggle('selected', state.paymentMethod === 'ton');
+            elements.paymentStars.classList.toggle('selected', state.paymentMethod === 'stars');
+            updateBalanceDisplay();
+            validateBet();
+        }
+        
+        // Обновление выбора гонщика
+        function updateRacerSelection() {
+            elements.racer1.classList.toggle('selected', state.selectedRacer === 1);
+            elements.racer2.classList.toggle('selected', state.selectedRacer === 2);
+            validateBet();
+        }
+        
+        // Расчет потенциального выигрыша
+        function updatePotentialWin() {
+            const amount = parseFloat(elements.betAmount.value) || 0;
+            const odds = state.selectedRacer === 1 ? 1.85 : 2.10;
+            const winAmount = (amount * odds).toFixed(2);
+            
+            if (elements.potentialWin) {
+                elements.potentialWin.textContent = winAmount;
+            }
+        }
+        
+        // Валидация ставки
+        function validateBet() {
+            const amount = parseFloat(elements.betAmount.value) || 0;
+            const isValid = amount > 0 && 
+                          amount <= state.balance && 
+                          state.selectedRacer !== null &&
+                          (state.wallet !== null || state.paymentMethod === 'stars');
+            
+            elements.placeBetBtn.disabled = !isValid;
+            return isValid;
+        }
+        
+        // Размещение ставки
+        async function placeBet() {
+            if (!validateBet()) return;
+            
+            const amount = parseFloat(elements.betAmount.value);
+            const racerId = state.selectedRacer;
+            const currency = state.paymentMethod;
+            const date = new Date().toISOString();
+            
+            try {
+                showStatus('Processing your bet...', 'loading');
+                elements.placeBetBtn.disabled = true;
+                
+                // Сохраняем ставку локально
+                const bet = {
+                    id: Date.now(),
+                    amount,
+                    racerId,
+                    currency,
+                    date,
+                    status: 'pending'
+                };
+                
+                state.bets.unshift(bet);
+                state.profile.totalBets++;
+                
+                // Оплата в зависимости от выбранного метода
+                if (currency === 'stars') {
+                    // Для Telegram Stars
+                    const newBalance = state.balance - amount;
+                    await tg.cloudStorage.setItem('stars_balance', newBalance.toString());
+                    state.balance = newBalance;
+                } else {
+                    // Для TON
+                    const transaction = {
+                        validUntil: Math.floor(Date.now() / 1000) + 300,
+                        messages: [
+                            {
+                                address: 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c', // Замените на адрес вашего контракта
+                                amount: (amount * 1000000000).toString(), // В нанотонах
+                                payload: JSON.stringify({
+                                    method: 'place_bet',
+                                    racer_id: racerId
+                                })
+                            }
+                        ]
+                    };
+                    
+                    await connector.sendTransaction(transaction);
+                }
+                
+                // Обновляем UI
+                updateBalanceDisplay();
+                updateHistoryList();
+                updateProfileStats();
+                saveToStorage();
+                
+                showStatus(`Bet placed: ${amount} ${currency} on racer ${racerId}`, 'success');
+                
+                // Сброс формы
+                setTimeout(() => {
+                    elements.statusMessage.classList.remove('status-success');
+                    elements.statusMessage.textContent = '';
+                }, 3000);
+                
+            } catch (error) {
+                console.error('Error placing bet:', error);
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                elements.placeBetBtn.disabled = false;
+            }
+        }
+        
+        // Обновление списка истории
+        function updateHistoryList() {
+            elements.historyList.innerHTML = '';
+            
+            state.bets.slice(0, 10).forEach(bet => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                
+                const amount = bet.amount * (bet.racerId === 1 ? 1.85 : 2.10);
+                const isWin = Math.random() > 0.5; // В реальном приложении используйте данные с сервера
+                
+                item.innerHTML = `
+                    <div>
+                        <div class="history-amount ${isWin ? 'win' : 'lose'}">
+                            ${isWin ? '+' : '-'}${amount.toFixed(2)} ${bet.currency}
+                        </div>
+                        <div class="history-details">
+                            ${bet.racerId === 1 ? 'Max Verstappen' : 'Lewis Hamilton'} • ${bet.amount} ${bet.currency}
+                        </div>
+                    </div>
+                    <div class="history-details">
+                        ${new Date(bet.date).toLocaleString()}
+                    </div>
+                `;
+                
+                elements.historyList.appendChild(item);
+            });
+        }
+        
+        // Обновление статистики профиля
+        function updateProfileStats() {
+            elements.userWallet.textContent = state.wallet 
+                ? shortenAddress(state.wallet.account.address) 
+                : 'Not connected';
+            
+            elements.totalBets.textContent = state.profile.totalBets;
+            
+            // В реальном приложении нужно рассчитывать на основе реальных данных
+            const totalWon = state.bets.reduce((sum, bet) => {
+                return sum + (bet.amount * (bet.racerId === 1 ? 1.85 : 2.10));
+            }, 0);
+            
+            elements.totalWon.textContent = totalWon.toFixed(2);
+        }
+        
+        // Переключение вкладок
+        function switchTab(tabId) {
+            // Скрыть все вкладки
+            Object.values(elements.tabs).forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Показать выбранную вкладку
+            elements.tabs[tabId.split('-')[0]].classList.remove('hidden');
+            
+            // Обновить активную кнопку
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+            });
+        }
+        
+        // Отображение статуса
+        function showStatus(message, type) {
+            elements.statusMessage.textContent = message;
+            elements.statusMessage.className = 'status-message';
+            
+            if (type === 'success') {
+                elements.statusMessage.classList.add('status-success');
+            } else if (type === 'error') {
+                elements.statusMessage.classList.add('status-error');
+            } else if (type === 'loading') {
+                elements.statusMessage.classList.add('status-loading');
+            }
+        }
+        
+        // Обновление UI
+        function updateUI() {
+            updateBalanceDisplay();
+            updatePaymentMethod();
+            updateRacerSelection();
+            updatePotentialWin();
+            validateBet();
+            updateProfileStats();
+            
+            if (state.wallet) {
+                elements.connectBtn.textContent = 'Disconnect';
+                elements.userWallet.textContent = shortenAddress(state.wallet.account.address);
+            } else {
+                elements.connectBtn.textContent = 'Connect';
+                elements.userWallet.textContent = 'Not connected';
+            }
+        }
+        
+        // Сокращение адреса кошелька
+        function shortenAddress(address) {
+            if (!address) return '';
+            return `${address.slice(0, 6)}...${address.slice(-4)}`;
+        }
+        
+        // Запуск приложения
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>

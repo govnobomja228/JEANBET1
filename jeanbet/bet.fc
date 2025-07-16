@@ -1,0 +1,31 @@
+;; bet-contract.fc
+(int) bet_is_active() method_id {
+    ;; Здесь логика проверки активности ставок
+    return 1;
+}
+
+() place_bet(int racer_id, int amount, slice user_address) impure method_id {
+    ;; Проверка активности ставок
+    throw_unless(403, bet_is_active());
+    
+    ;; Проверка минимальной ставки (1 USDT = 1000000 единиц)
+    throw_unless(400, amount >= 1000000);
+    
+    ;; Сохраняем ставку
+    var bet_data = begin_cell()
+        .store_uint(racer_id, 8)
+        .store_uint(amount, 64)
+        .store_slice(user_address)
+        .end_cell();
+    
+    ;; Отправляем в хранилище (в реальном контракте используем dict)
+    send_raw_message(bet_data, 0);
+    
+    ;; Логируем событие
+    ;; В реальном контракте можно использовать event
+}
+
+() payout_winner(int racer_id) impure method_id {
+    ;; Здесь логика выплат выигрышей
+    ;; В реальном контракте будет сложнее с обработкой всех ставок
+}
