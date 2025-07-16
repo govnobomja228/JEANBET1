@@ -3,9 +3,22 @@ import { getLibrary } from './utils/web3';
 import WalletConnect from './components/WalletConnect';
 import USDTDeposit from './components/USDTDeposit';
 import RaceBetting from './components/RaceBetting';
+import AdminPanel from './components/AdminPanel'; // New component
 
 function App() {
   const [activeTab, setActiveTab] = useState('bet');
+  const [isAdmin, setIsAdmin] = useState(false); // Admin state
+
+  // Check if user is admin (you can implement proper auth later)
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const user = await Telegram.WebApp.initDataUnsafe.user;
+      if (user && user.username === 'YOUR_ADMIN_USERNAME') {
+        setIsAdmin(true);
+      }
+    };
+    checkAdmin();
+  }, []);
 
   return (
     <Web3ReactProvider getLibrary={getLibrary}>
@@ -35,9 +48,21 @@ function App() {
             >
               Пополнить USDT
             </button>
+            {isAdmin && (
+              <button 
+                onClick={() => setActiveTab('admin')}
+                className={`px-4 py-2 rounded-lg ${
+                  activeTab === 'admin' ? 'bg-blue-600' : 'bg-gray-700'
+                }`}
+              >
+                Admin Panel
+              </button>
+            )}
           </div>
 
-          {activeTab === 'bet' ? <RaceBetting /> : <USDTDeposit />}
+          {activeTab === 'bet' ? <RaceBetting /> : 
+           activeTab === 'deposit' ? <USDTDeposit /> : 
+           <AdminPanel />}
         </main>
       </div>
     </Web3ReactProvider>
