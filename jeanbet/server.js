@@ -12,6 +12,54 @@ const PORT = process.env.PORT || 3000;
 const TELEGRAM_BOT_TOKEN = '8040187426:AAGG7YZMryaLNch-JenpHmowS0O-0YIiAPY';
 const ADMIN_PASSWORD = 'DanyaJEANbet';
 
+// API для тестового пополнения баланса
+app.post('/api/test-deposit', async (req, res) => {
+  const { userId, amount } = req.body;
+  
+  if (!userId || !amount) {
+    return res.status(400).json({ error: 'User ID and amount are required' });
+  }
+
+  if (amount <= 0) {
+    return res.status(400).json({ error: 'Amount must be positive' });
+  }
+  
+  try {
+    // Создаем пользователя если не существует, или пополняем баланс
+    await pool.query(`
+      INSERT INTO users (telegram_id, balance) 
+      VALUES ($1, $2)
+      ON CONFLICT (telegram_id) 
+      DO UPDATE SET balance = users.balance + $2
+    `, [userId, amount]);
+    
+    // Записываем транзакцию
+    await pool.query(
+      `INSERT INTO transactions 
+       (user_id, amount, type, status) 
+       VALUES ($1, $2, $3, $4)`,
+      [userId, amount, 'test_deposit', 'completed']
+    );
+    
+    // Получаем обновленный баланс
+    const balanceResult = await pool.query(
+      'SELECT balance FROM users WHERE telegram_id = $1',
+      [userId]
+    );
+    
+    res.json({ 
+      success: true, 
+      newBalance: parseFloat(balanceResult.rows[0].balance) 
+    });
+  } catch (error) {
+    console.error('Test deposit error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
+});
+
 // Глобальные переменные для коэффициентов
 let currentOdds = {
   racer1: 1.85,
@@ -386,6 +434,31 @@ app.post('/api/admin/adjust-balance', checkAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error adjusting balance:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Получить все транзакции пользователя (для проверки)
+app.get('/api/test/transactions/:userId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC',
+      [req.params.userId]
+    );
+    res.json({ transactions: result.rows });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Сбросить тестового пользователя
+app.post('/api/test/reset-user', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    await pool.query('DELETE FROM users WHERE telegram_id = $1', [userId]);
+    await pool.query('DELETE FROM transactions WHERE user_id = $1', [userId]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
