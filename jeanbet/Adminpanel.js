@@ -6,6 +6,11 @@ export default function AdminPanel() {
   const [message, setMessage] = useState('');
 
   const declareWinner = async () => {
+    if (!raceId || !winner) {
+      setMessage('Please fill all fields');
+      return;
+    }
+
     try {
       const response = await fetch('/api/admin/declare-winner', {
         method: 'POST',
@@ -15,6 +20,10 @@ export default function AdminPanel() {
         body: JSON.stringify({ raceId, winner }),
       });
       
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
       const data = await response.json();
       setMessage(data.message || 'Winner declared successfully!');
     } catch (error) {
@@ -33,6 +42,7 @@ export default function AdminPanel() {
           value={raceId}
           onChange={(e) => setRaceId(e.target.value)}
           className="w-full p-2 bg-gray-700 rounded"
+          required
         />
       </div>
       
@@ -42,6 +52,7 @@ export default function AdminPanel() {
           value={winner}
           onChange={(e) => setWinner(e.target.value)}
           className="w-full p-2 bg-gray-700 rounded"
+          required
         >
           <option value="">Select winner</option>
           <option value="1">Max Verstappen</option>

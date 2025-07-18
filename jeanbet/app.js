@@ -3,18 +3,24 @@ import { getLibrary } from './utils/web3';
 import WalletConnect from './components/WalletConnect';
 import USDTDeposit from './components/USDTDeposit';
 import RaceBetting from './components/RaceBetting';
-import AdminPanel from './components/AdminPanel'; // New component
+import AdminPanel from './components/AdminPanel';
+import { useState, useEffect } from 'react';
 
 function App() {
   const [activeTab, setActiveTab] = useState('bet');
-  const [isAdmin, setIsAdmin] = useState(false); // Admin state
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Check if user is admin (you can implement proper auth later)
   useEffect(() => {
     const checkAdmin = async () => {
-      const user = await Telegram.WebApp.initDataUnsafe.user;
-      if (user && user.username === '@bus1o') {
-        setIsAdmin(true);
+      try {
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
+          const user = window.Telegram.WebApp.initDataUnsafe.user;
+          if (user && user.username === 'bus1o') {
+            setIsAdmin(true);
+          }
+        }
+      } catch (error) {
+        console.error('Admin check error:', error);
       }
     };
     checkAdmin();
@@ -62,9 +68,11 @@ function App() {
 
           {activeTab === 'bet' ? <RaceBetting /> : 
            activeTab === 'deposit' ? <USDTDeposit /> : 
-           <AdminPanel />}
+           isAdmin ? <AdminPanel /> : null}
         </main>
       </div>
     </Web3ReactProvider>
   );
 }
+
+export default App;
