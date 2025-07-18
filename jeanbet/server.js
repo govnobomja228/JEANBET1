@@ -330,12 +330,9 @@ app.post('/api/admin/races/settle', authMiddleware, async (req, res) => {
 });
 
 // Глобальный обработчик ошибок
-app.use((err, req, res, next) => {
-  console.error('Global error:', err);
-  res.status(500).json({ 
-    success: false,
-    error: 'Internal Server Error' 
-  });
+app.use((req, res) => {
+  console.log('Unhandled route:', req.path);
+  res.status(404).json({ error: 'Not Found' });
 });
 
 // Инициализация сервера
