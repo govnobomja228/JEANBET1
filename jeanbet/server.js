@@ -519,6 +519,124 @@ app.post('/api/test/declare-winner', async (req, res) => {
   }
 });
 
+// Получение или создание пользователя
+app.post('/api/user', async (req, res) => {
+  const { userId, username } = req.body;
+  
+  if (!userId) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+
+  try {
+    // Создаем пользователя если не существует
+    await pool.query(`
+      INSERT INTO users (telegram_id, username, balance) 
+      VALUES ($1, $2, 0)
+      ON CONFLICT (telegram_id) DO NOTHING
+    `, [userId, username]);
+    
+    // Возвращаем данные пользователя
+    const user = await pool.query(
+      'SELECT telegram_id, username, balance FROM users WHERE telegram_id = $1',
+      [userId]
+    );
+    
+    res.json({ 
+      success: true, 
+      user: user.rows[0] || { telegram_id: userId, balance: 0 }
+    });
+  } catch (error) {
+    console.error('User init error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Тестовое пополнение баланса
+app.post('/api/test-deposit', async (req, res) => {
+  const { userId, amount } = req.body;
+  
+  if (!userId || !amount) {
+    return res.status(400).json({ error: 'User ID and amount are required' });
+  }
+
+  if (amount <= 0) {
+    return res.status(400).json({ error: 'Amount must be positive' });
+  }
+  
+  try {
+    // Проверяем существование пользователя
+    const userExists = await pool.query(
+      'SELECT 1 FROM users WHERE telegram_id = $1',
+      [userId]
+    );
+    
+    if (!userExists.rows.length) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Пополняем баланс
+    await pool.query(
+      'UPDATE users SET balance = balance + $1 WHERE telegram_id = $2',
+      [amount, userId]
+    );
+    
+    // Записываем транзакцию
+    await pool.query(
+      `INSERT INTO transactions 
+       (user_id, amount, type, status) 
+       VALUES ($1, $2, $3, $4)`,
+      [userId, amount, 'test_deposit', 'completed']
+    );
+    
+    // Получаем обновленный баланс
+    const balanceResult = await pool.query(
+      'SELECT balance FROM users WHERE telegram_id = $1',
+      [userId]
+    );
+    
+    res.json({ 
+      success: true, 
+      newBalance: parseFloat(balanceResult.rows[0].balance) 
+    });
+  } catch (error) {
+    console.error('Deposit error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Получение баланса
+app.get('/api/balance/:userId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT balance FROM users WHERE telegram_id = $1',
+      [req.params.userId]
+    );
+    
+    res.json({ 
+      balance: result.rows[0]?.balance || 0 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// История транзакций
+app.get('/api/transactions/:userId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, amount, type, status, created_at 
+       FROM transactions 
+       WHERE user_id = $1
+       ORDER BY created_at DESC`,
+      [req.params.userId]
+    );
+    
+    res.json({ transactions: result.rows });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
 // Запуск сервера

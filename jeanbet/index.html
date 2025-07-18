@@ -569,27 +569,75 @@
             });
         }
         
-        // Обработка пополнения баланса
-        async function processDeposit(amount) {
-            try {
-                const userId = tg.initDataUnsafe?.user?.id;
-                const response = await fetch(`${SERVER_URL}/api/test-deposit`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId, amount })
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    state.balance = data.newBalance;
-                    updateBalanceDisplay();
-                    showStatus(`Баланс пополнен на ${amount} ₽`, 'success');
-                }
-            } catch (error) {
-                showStatus('Ошибка: ' + error.message, 'error');
-            }
-        }
-        
+        // В разделе <script> обновите эти функции:
+
+// Инициализация пользователя
+async function initUser() {
+  const tgUser = tg.initDataUnsafe?.user;
+  if (!tgUser) return;
+
+  try {
+    const response = await fetch(`${SERVER_URL}/api/user`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: tgUser.id,
+        username: tgUser.username
+      })
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      state.userId = tgUser.id;
+      await loadBalance();
+    }
+  } catch (error) {
+    console.error('User init error:', error);
+  }
+}
+
+// Обработка пополнения баланса
+async function processDeposit(amount) {
+  if (!state.userId) {
+    showStatus('Ошибка: пользователь не идентифицирован', 'error');
+    return;
+  }
+
+  try {
+    showStatus('Обработка платежа...', 'loading');
+    
+    const response = await fetch(`${SERVER_URL}/api/test-deposit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        userId: state.userId, 
+        amount: amount 
+      })
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      state.balance = data.newBalance;
+      updateBalanceDisplay();
+      showStatus(`Баланс пополнен на ${amount} ₽`, 'success');
+    } else {
+      throw new Error(data.error || 'Неизвестная ошибка');
+    }
+  } catch (error) {
+    showStatus('Ошибка: ' + error.message, 'error');
+  }
+}
+
+// Обновите функцию initApp():
+async function initApp() {
+  tg.expand();
+  tg.enableClosingConfirmation();
+  
+  await initUser(); // Инициализируем пользователя
+  await loadOdds();
+  setupEventListeners();
+  updateUI();
+}
         // Размещение ставки
         async function placeBet() {
             if (!validateBet()) return;
