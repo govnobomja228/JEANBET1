@@ -17,6 +17,10 @@
       "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     },
     {
+      "src": "/payment-success",
+      "dest": "/server.js"
+    },
+    {
       "src": "/health",
       "dest": "/server.js"
     },
@@ -26,9 +30,10 @@
     }
   ],
   "env": {
-    "TELEGRAM_BOT_TOKEN": "@telegram_bot_token",
-    "POSTGRES_URL": "@postgres_url",
+    "TELEGRAM_BOT_TOKEN": "6040187426:AAGG7YZMryaLNch-JenpHmowS0O-0YIiAPY",
+    "POSTGRES_URL": "postgres://postgres.vaxvsksypoiswanqgkbc:xVnqRa0BMcqGFBx6@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
     "YOOKASSA_SHOP_ID": "@yookassa_shop_id",
-    "YOOKASSA_SECRET_KEY": "@yookassa_secret_key"
+    "YOOKASSA_SECRET_KEY": "@yookassa_secret_key",
+    "ADMIN_CHAT_ID": "@admin_chat_id"
   }
 }
