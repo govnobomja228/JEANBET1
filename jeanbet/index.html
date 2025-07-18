@@ -7,138 +7,86 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --tg-bg: #17212b;
-            --tg-text: #ffffff;
-            --tg-hint: #708499;
-            --tg-primary: #2ea6ff;
-            --tg-button-text: #ffffff;
-            --tg-secondary: #1e2c3a;
+            --tg-theme-bg-color: #17212b;
+            --tg-theme-text-color: #ffffff;
+            --tg-theme-button-color: #2ea6ff;
+            --tg-theme-secondary-bg-color: #1e2c3a;
         }
-
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--tg-bg);
-            color: var(--tg-text);
+            background: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            padding: 20px;
             margin: 0;
-            padding: 16px;
-            line-height: 1.5;
         }
-
+        
         .container {
             max-width: 100%;
             margin: 0 auto;
             padding-bottom: 60px;
         }
-
-        .header {
+        
+        .balance-card {
+            background: var(--tg-theme-secondary-bg-color);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
         }
-
-        .title {
+        
+        .balance-amount {
             font-size: 24px;
             font-weight: bold;
-            background: linear-gradient(90deg, #2AABEE, #229ED9);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
         }
-
-        .balance-card {
-            background: var(--tg-secondary);
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .balance-amount {
-            font-size: 28px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-        }
-
+        
         .btn {
-            background: var(--tg-primary);
-            color: var(--tg-button-text);
+            background: var(--tg-theme-button-color);
+            color: white;
             border: none;
-            border-radius: 12px;
+            border-radius: 10px;
             padding: 12px 16px;
             font-size: 16px;
-            font-weight: 500;
-            width: 100%;
             cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 8px;
+            width: 100%;
+            margin-bottom: 10px;
         }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
+        
         .section {
-            background: var(--tg-secondary);
+            background: var(--tg-theme-secondary-bg-color);
             border-radius: 16px;
             padding: 16px;
             margin-bottom: 16px;
         }
-
+        
         .racers {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
             margin: 16px 0;
         }
-
+        
         .racer {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 12px;
             padding: 16px;
             text-align: center;
             cursor: pointer;
-            transition: all 0.2s;
             border: 2px solid transparent;
         }
-
+        
         .racer.selected {
-            border-color: var(--tg-primary);
+            border-color: var(--tg-theme-button-color);
             background: rgba(46, 166, 255, 0.1);
         }
-
+        
         .racer-odds {
-            color: var(--tg-primary);
+            color: var(--tg-theme-button-color);
             font-weight: bold;
         }
-
-        .status {
-            padding: 12px;
-            border-radius: 12px;
-            margin: 16px 0;
-            text-align: center;
-            display: none;
-        }
-
-        .status-success {
-            background: rgba(76, 175, 80, 0.2);
-            color: #4CAF50;
-            display: block;
-        }
-
-        .status-error {
-            background: rgba(244, 67, 54, 0.2);
-            color: #F44336;
-            display: block;
-        }
-
+        
         .input-field {
             width: 100%;
             background: rgba(255, 255, 255, 0.05);
@@ -146,48 +94,59 @@
             border-radius: 12px;
             padding: 14px;
             font-size: 16px;
-            color: var(--tg-text);
+            color: var(--tg-theme-text-color);
+            margin-bottom: 16px;
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 16px 0;
+            text-align: center;
+            display: none;
+        }
+        
+        .status-success {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+            display: block;
+        }
+        
+        .status-error {
+            background: rgba(244, 67, 54, 0.2);
+            color: #F44336;
+            display: block;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <div class="title">JEAN Bet</div>
-        </div>
-        
         <div class="balance-card">
             <div>
-                <div style="font-size: 14px; color: var(--tg-hint);">Ваш баланс</div>
-                <div class="balance-amount" id="balance">0</div>
+                <div style="font-size: 14px; opacity: 0.8;">Ваш баланс</div>
+                <div class="balance-amount" id="balance">0 ₽</div>
             </div>
             <button id="deposit-btn" class="btn">Пополнить</button>
         </div>
         
         <div class="section">
-            <div style="font-size: 18px; font-weight: 500; margin-bottom: 12px;">Сделать ставку</div>
+            <div style="font-size: 18px; font-weight: 500; margin-bottom: 16px;">Сделать ставку</div>
             
-            <div style="margin-bottom: 16px;">
-                <label style="display: block; font-size: 14px; color: var(--tg-hint); margin-bottom: 8px;">Сумма ставки (мин. 50 ₽)</label>
-                <input type="number" id="bet-amount" class="input-field" min="50" value="50">
-            </div>
+            <input type="number" id="bet-amount" class="input-field" min="50" value="50" placeholder="Сумма ставки">
             
-            <div style="margin-bottom: 16px;">
-                <label style="display: block; font-size: 14px; color: var(--tg-hint); margin-bottom: 8px;">Выберите гонщика</label>
-                <div class="racers">
-                    <div class="racer" id="racer-1" data-id="1">
-                        <div class="racer-name">Гонщик 1</div>
-                        <div class="racer-odds" id="racer-1-odds">x1.85</div>
-                    </div>
-                    <div class="racer" id="racer-2" data-id="2">
-                        <div class="racer-name">Гонщик 2</div>
-                        <div class="racer-odds" id="racer-2-odds">x2.10</div>
-                    </div>
+            <div class="racers">
+                <div class="racer" id="racer-1" data-id="1">
+                    <div class="racer-name">Гонщик 1</div>
+                    <div class="racer-odds" id="odds-1">x1.85</div>
+                </div>
+                <div class="racer" id="racer-2" data-id="2">
+                    <div class="racer-name">Гонщик 2</div>
+                    <div class="racer-odds" id="odds-2">x2.10</div>
                 </div>
             </div>
             
-            <div style="text-align: center; margin: 16px 0; color: var(--tg-hint);">
-                Потенциальный выигрыш: <span id="potential-win" style="color: var(--tg-primary); font-weight: bold;">0</span> ₽
+            <div style="text-align: center; margin: 16px 0; color: var(--tg-theme-hint-color);">
+                Потенциальный выигрыш: <span id="potential-win" style="color: var(--tg-theme-button-color); font-weight: bold;">0 ₽</span>
             </div>
             
             <button id="place-bet" class="btn" disabled>Сделать ставку</button>
@@ -198,16 +157,13 @@
         <!-- Админ-панель (скрыта по умолчанию) -->
         <div id="admin-panel" style="display: none;">
             <div class="section">
-                <div style="font-size: 18px; font-weight: 500; margin-bottom: 12px;">Админ-панель</div>
+                <div style="font-size: 18px; font-weight: 500; margin-bottom: 16px;">Админ-панель</div>
                 
-                <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 14px; color: var(--tg-hint); margin-bottom: 8px;">Победитель</label>
-                    <select id="winner-select" class="input-field">
-                        <option value="">Выберите победителя</option>
-                        <option value="1">Гонщик 1</option>
-                        <option value="2">Гонщик 2</option>
-                    </select>
-                </div>
+                <select id="winner-select" class="input-field">
+                    <option value="">Выберите победителя</option>
+                    <option value="1">Гонщик 1</option>
+                    <option value="2">Гонщик 2</option>
+                </select>
                 
                 <button id="declare-winner" class="btn">Объявить победителя</button>
                 <div id="admin-status" class="status"></div>
@@ -220,8 +176,8 @@
         const SERVER_URL = 'https://jeanbet-1-j9dw-eight.vercel.app';
         
         const state = {
-            userId: null,
-            username: null,
+            userId: tg.initDataUnsafe?.user?.id,
+            username: tg.initDataUnsafe?.user?.username,
             balance: 0,
             selectedRacer: null,
             isAdmin: false,
@@ -240,7 +196,9 @@
             adminPanel: document.getElementById('admin-panel'),
             winnerSelect: document.getElementById('winner-select'),
             declareWinnerBtn: document.getElementById('declare-winner'),
-            adminStatus: document.getElementById('admin-status')
+            adminStatus: document.getElementById('admin-status'),
+            odds1: document.getElementById('odds-1'),
+            odds2: document.getElementById('odds-2')
         };
         
         // Инициализация приложения
@@ -248,14 +206,10 @@
             tg.expand();
             tg.enableClosingConfirmation();
             
-            const tgUser = tg.initDataUnsafe?.user;
-            if (!tgUser) {
+            if (!state.userId) {
                 showStatus('Ошибка авторизации', 'error');
                 return;
             }
-            
-            state.userId = tgUser.id;
-            state.username = tgUser.username;
             
             await initUser();
             await loadBalance();
@@ -277,11 +231,9 @@
                 });
                 
                 const data = await response.json();
-                if (!data.success) {
-                    throw new Error('Ошибка авторизации');
-                }
+                if (!data.success) throw new Error(data.error);
             } catch (error) {
-                console.error('User init error:', error);
+                console.error('Auth error:', error);
                 showStatus('Ошибка авторизации', 'error');
             }
         }
@@ -329,8 +281,10 @@
                 const response = await fetch(`${SERVER_URL}/api/odds`);
                 const data = await response.json();
                 
-                elements.racer1Odds.textContent = `x${data.racer1.toFixed(2)}`;
-                elements.racer2Odds.textContent = `x${data.racer2.toFixed(2)}`;
+                if (data.success) {
+                    elements.odds1.textContent = `x${data.odds.racer1.toFixed(2)}`;
+                    elements.odds2.textContent = `x${data.odds.racer2.toFixed(2)}`;
+                }
             } catch (error) {
                 console.error('Odds load error:', error);
             }
@@ -413,7 +367,7 @@
                 showAdminStatus('Обработка...', 'loading');
                 elements.declareWinnerBtn.disabled = true;
                 
-                const response = await fetch(`${SERVER_URL}/api/admin/races/current/settle`, {
+                const response = await fetch(`${SERVER_URL}/api/admin/races/settle`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -487,7 +441,7 @@
         
         // Обновление интерфейса
         function updateBalanceDisplay() {
-            elements.balance.textContent = state.balance.toFixed(2);
+            elements.balance.textContent = `${state.balance.toFixed(2)} ₽`;
         }
         
         function updateRacerSelection() {
@@ -498,8 +452,8 @@
         function updatePotentialWin() {
             const amount = parseFloat(elements.betAmount.value) || 0;
             const odds = state.selectedRacer === 1 ? 
-                parseFloat(elements.racer1Odds.textContent.substring(1)) : 
-                parseFloat(elements.racer2Odds.textContent.substring(1));
+                parseFloat(elements.odds1.textContent.substring(1)) : 
+                parseFloat(elements.odds2.textContent.substring(1));
             
             elements.potentialWin.textContent = (amount * odds).toFixed(2);
         }
