@@ -1,4 +1,3 @@
-console.log('Server starting...');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -57,10 +56,17 @@ async function initDB() {
         status VARCHAR(20) DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS races (
+        id SERIAL PRIMARY KEY,
+        winner_id INTEGER,
+        settled_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
     `);
-    console.log('Database initialized successfully');
+    console.log('База данных успешно инициализирована');
   } catch (error) {
-    console.error('Database initialization failed:', error);
+    console.error('Ошибка инициализации БД:', error);
     process.exit(1);
   }
 }
@@ -69,7 +75,7 @@ async function initDB() {
 const authMiddleware = async (req, res, next) => {
   try {
     const userId = req.body.userId || req.query.userId;
-    if (!userId) throw new Error('User ID is required');
+    if (!userId) throw new Error('Требуется ID пользователя');
     
     const user = await pool.query(
       'SELECT * FROM users WHERE telegram_id = $1', 
@@ -79,7 +85,7 @@ const authMiddleware = async (req, res, next) => {
     if (!user.rows.length) {
       return res.status(404).json({ 
         success: false,
-        error: 'User not found' 
+        error: 'Пользователь не найден' 
       });
     }
     
@@ -93,13 +99,28 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
+// Middleware для проверки администратора
+const adminMiddleware = async (req, res, next) => {
+  try {
+    if (!req.user?.is_admin) {
+      throw new Error('Доступ запрещен');
+    }
+    next();
+  } catch (error) {
+    res.status(403).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
 /* ========== КЛИЕНТСКИЕ ЭНДПОИНТЫ ========== */
 
 // Регистрация/авторизация пользователя
 app.post('/api/auth', async (req, res) => {
   try {
     const { userId, username } = req.body;
-    if (!userId) throw new Error('User ID is required');
+    if (!userId) throw new Error('Требуется ID пользователя');
 
     const result = await pool.query(`
       INSERT INTO users (telegram_id, username)
@@ -114,10 +135,10 @@ app.post('/api/auth', async (req, res) => {
       user: result.rows[0]
     });
   } catch (error) {
-    console.error('Auth error:', error);
+    console.error('Ошибка авторизации:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Authentication failed' 
+      error: 'Ошибка авторизации' 
     });
   }
 });
@@ -142,21 +163,19 @@ app.get('/api/balance/:userId', async (req, res) => {
   }
 });
 
-// Тестовое пополнение баланса
+// Пополнение баланса
 app.post('/api/payment/deposit', authMiddleware, async (req, res) => {
   try {
     const { amount } = req.body;
-    if (!amount || amount <= 0) throw new Error('Invalid amount');
+    if (!amount || amount <= 0) throw new Error('Неверная сумма');
 
     await pool.query('BEGIN');
     
-    // Обновляем баланс
     await pool.query(
       'UPDATE users SET balance = balance + $1 WHERE telegram_id = $2',
       [amount, req.user.telegram_id]
     );
     
-    // Записываем транзакцию
     await pool.query(
       `INSERT INTO transactions 
        (user_id, amount, type, status)
@@ -168,15 +187,15 @@ app.post('/api/payment/deposit', authMiddleware, async (req, res) => {
     
     res.json({ 
       success: true,
-      message: `Balance updated by ${amount} RUB`
+      message: `Баланс пополнен на ${amount} ₽`
     });
 
   } catch (error) {
     await pool.query('ROLLBACK');
-    console.error('Deposit error:', error);
+    console.error('Ошибка пополнения:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Transaction failed',
+      error: 'Ошибка транзакции',
       details: error.message
     });
   }
@@ -187,29 +206,26 @@ app.post('/api/bets', authMiddleware, async (req, res) => {
   try {
     const { amount, racerId } = req.body;
     
-    if (![1, 2].includes(Number(racerId))) throw new Error('Invalid racer ID');
-    if (amount < 50) throw new Error('Minimum bet is 50 RUB');
+    if (![1, 2].includes(Number(racerId))) throw new Error('Неверный ID гонщика');
+    if (amount < 50) throw new Error('Минимальная ставка 50 ₽');
 
     await pool.query('BEGIN');
     
-    // Проверяем баланс с блокировкой
     const balance = await pool.query(
       'SELECT balance FROM users WHERE telegram_id = $1 FOR UPDATE',
       [req.user.telegram_id]
     );
     
     if (balance.rows[0].balance < amount) {
-      throw new Error('Insufficient funds');
+      throw new Error('Недостаточно средств');
     }
     
-    // Создаем ставку
     const odds = racerId === 1 ? 1.85 : 2.10;
     await pool.query(
       'INSERT INTO bets (user_id, amount, racer_id, odds) VALUES ($1, $2, $3, $4)',
       [req.user.telegram_id, amount, racerId, odds]
     );
     
-    // Списание средств
     await pool.query(
       'UPDATE users SET balance = balance - $1 WHERE telegram_id = $2',
       [amount, req.user.telegram_id]
@@ -219,7 +235,7 @@ app.post('/api/bets', authMiddleware, async (req, res) => {
     
     res.json({ 
       success: true,
-      message: 'Bet placed successfully'
+      message: 'Ставка принята'
     });
 
   } catch (error) {
@@ -244,20 +260,34 @@ app.get('/api/odds', (req, res) => {
 
 /* ========== АДМИН ЭНДПОИНТЫ ========== */
 
-// Проверка прав администратора
-const adminMiddleware = async (req, res, next) => {
+// Авторизация админа
+app.post('/api/admin/login', authMiddleware, async (req, res) => {
   try {
-    if (!req.user?.is_admin) {
-      throw new Error('Доступ запрещен');
+    const { password } = req.body;
+    
+    if (password === process.env.ADMIN_PASSWORD) {
+      await pool.query(
+        'UPDATE users SET is_admin = TRUE WHERE telegram_id = $1',
+        [req.user.telegram_id]
+      );
+      
+      res.json({ 
+        success: true,
+        isAdmin: true 
+      });
+    } else {
+      res.status(401).json({ 
+        success: false,
+        error: 'Неверный пароль' 
+      });
     }
-    next();
   } catch (error) {
-    res.status(403).json({
+    res.status(500).json({
       success: false,
       error: error.message
     });
   }
-};
+});
 
 // Получение активных ставок
 app.get('/api/admin/active-bets', authMiddleware, adminMiddleware, async (req, res) => {
@@ -285,7 +315,7 @@ app.get('/api/admin/active-bets', authMiddleware, adminMiddleware, async (req, r
 app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT telegram_id, username, balance FROM users ORDER BY created_at DESC'
+      'SELECT telegram_id, username, balance, is_admin FROM users ORDER BY created_at DESC'
     );
     
     res.json({
@@ -303,9 +333,10 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =>
 // Получение статистики
 app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const [users, bets, volume, betsByHour] = await Promise.all([
+    const [users, activeBets, totalBets, totalVolume, betsByHour] = await Promise.all([
       pool.query('SELECT COUNT(*) FROM users'),
       pool.query('SELECT COUNT(*) FROM bets WHERE status = \'pending\''),
+      pool.query('SELECT COUNT(*) FROM bets'),
       pool.query('SELECT COALESCE(SUM(amount), 0) FROM bets'),
       pool.query(`
         SELECT 
@@ -322,8 +353,9 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) =>
       success: true,
       stats: {
         totalUsers: parseInt(users.rows[0].count),
-        activeBets: parseInt(bets.rows[0].count),
-        totalVolume: parseFloat(volume.rows[0].coalesce),
+        activeBets: parseInt(activeBets.rows[0].count),
+        totalBets: parseInt(totalBets.rows[0].count),
+        totalVolume: parseFloat(totalVolume.rows[0].coalesce),
         betsByHour: betsByHour.rows.map(row => ({
           hour: row.hour,
           bets: parseInt(row.bets)
@@ -338,14 +370,22 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) =>
   }
 });
 
-// Объявление победителя (новая версия)
-app.post('/api/admin/settle', authMiddleware, adminMiddleware, async (req, res) => {
+// Объявление победителя
+app.post('/api/admin/races/settle', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const { raceId, winner } = req.body;
-    if (![1, 2].includes(Number(winner))) throw new Error('Некорректный ID победителя');
+    const { winnerId } = req.body;
+    if (![1, 2].includes(Number(winnerId))) throw new Error('Неверный ID победителя');
 
     await pool.query('BEGIN');
     
+    // Создаем запись о гонке
+    const race = await pool.query(
+      'INSERT INTO races (winner_id, settled_at) VALUES ($1, NOW()) RETURNING id',
+      [winnerId]
+    );
+    
+    const raceId = race.rows[0].id;
+
     // Находим все активные ставки
     const bets = await pool.query(
       `SELECT id, user_id, amount, odds, racer_id 
@@ -354,7 +394,7 @@ app.post('/api/admin/settle', authMiddleware, adminMiddleware, async (req, res) 
     
     // Обрабатываем каждую ставку
     for (const bet of bets.rows) {
-      if (bet.racer_id === Number(winner)) {
+      if (bet.racer_id === winnerId) {
         const winAmount = bet.amount * bet.odds;
         await pool.query(
           'UPDATE users SET balance = balance + $1 WHERE telegram_id = $2',
@@ -369,9 +409,9 @@ app.post('/api/admin/settle', authMiddleware, adminMiddleware, async (req, res) 
       }
       
       await pool.query(
-        `UPDATE bets SET status = $1 
-         WHERE id = $2`,
-        [bet.racer_id === Number(winner) ? 'won' : 'lost', bet.id]
+        `UPDATE bets SET status = $1, race_id = $2
+         WHERE id = $3`,
+        [bet.racer_id === winnerId ? 'won' : 'lost', raceId, bet.id]
       );
     }
     
@@ -379,12 +419,12 @@ app.post('/api/admin/settle', authMiddleware, adminMiddleware, async (req, res) 
     
     res.json({ 
       success: true,
-      message: 'Победитель успешно объявлен'
+      message: 'Гонка завершена. Победитель объявлен'
     });
 
   } catch (error) {
     await pool.query('ROLLBACK');
-    console.error('Ошибка при объявлении победителя:', error);
+    console.error('Ошибка завершения гонки:', error);
     res.status(500).json({ 
       success: false,
       error: error.message
@@ -400,13 +440,11 @@ app.post('/api/admin/adjust-balance', authMiddleware, adminMiddleware, async (re
     
     await pool.query('BEGIN');
     
-    // Обновляем баланс
     await pool.query(
       'UPDATE users SET balance = balance + $1 WHERE telegram_id = $2',
       [amount, userId]
     );
     
-    // Записываем транзакцию
     await pool.query(
       `INSERT INTO transactions 
        (user_id, amount, type, status, details)
@@ -418,7 +456,7 @@ app.post('/api/admin/adjust-balance', authMiddleware, adminMiddleware, async (re
     
     res.json({ 
       success: true,
-      message: `Баланс изменен на ${amount} ₽`
+      message: `Баланс пользователя изменен на ${amount} ₽`
     });
 
   } catch (error) {
@@ -438,7 +476,6 @@ app.post('/api/admin/cancel-bet', authMiddleware, adminMiddleware, async (req, r
 
     await pool.query('BEGIN');
     
-    // Получаем информацию о ставке
     const bet = await pool.query(
       `SELECT user_id, amount FROM bets WHERE id = $1 AND status = 'pending' FOR UPDATE`,
       [betId]
@@ -448,13 +485,11 @@ app.post('/api/admin/cancel-bet', authMiddleware, adminMiddleware, async (req, r
       throw new Error('Ставка не найдена или уже обработана');
     }
     
-    // Возвращаем средства
     await pool.query(
       'UPDATE users SET balance = balance + $1 WHERE telegram_id = $2',
       [bet.rows[0].amount, bet.rows[0].user_id]
     );
     
-    // Отменяем ставку
     await pool.query(
       'UPDATE bets SET status = \'canceled\' WHERE id = $1',
       [betId]
@@ -475,3 +510,20 @@ app.post('/api/admin/cancel-bet', authMiddleware, adminMiddleware, async (req, r
     });
   }
 });
+
+// Глобальный обработчик ошибок
+app.use((req, res) => {
+  console.log('Необработанный маршрут:', req.path);
+  res.status(404).json({ error: 'Не найдено' });
+});
+
+// Инициализация сервера
+initDB().then(() => {
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    console.log(`Сервер запущен на порту ${port}`);
+    bot.setWebHook(`https://jeanbet-1-j9dw-eight.vercel.app/bot${process.env.TELEGRAM_BOT_TOKEN}`);
+  });
+});
+
+module.exports = app;
