@@ -14,7 +14,7 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8040187426:AAGG7YZ
 const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID;
 const YOOKASSA_SECRET_KEY = process.env.YOOKASSA_SECRET_KEY;
 const ADMIN_USERNAME = 'bus1o';
-const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID; // Для уведомлений о выводах
+const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 
 const pool = new Pool({
   connectionString: process.env.POSTGRES_URL,
