@@ -232,6 +232,15 @@ app.post('/api/bets', authMiddleware, async (req, res) => {
   }
 });
 
+app.get('/api/test-db', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW() as time');
+    res.json({ success: true, time: result.rows[0].time });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Получение активных гонок
 app.get('/api/races', async (req, res) => {
   try {
