@@ -176,6 +176,42 @@
             display: none;
         }
 
+        .modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+  
+  .modal.hidden {
+    display: none;
+  }
+  
+  .modal-content {
+    background-color: var(--tg-secondary);
+    margin: 15% auto;
+    padding: 20px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+  
+  .close-modal {
+    font-size: 24px;
+    cursor: pointer;
+  }
+
         .status-success {
             background: rgba(76, 175, 80, 0.2);
             color: #4CAF50;
@@ -216,6 +252,22 @@
             </div>
             <button id="deposit-btn" class="btn btn-secondary">Пополнить</button>
         </div>
+
+        <div id="deposit-modal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Пополнение баланса</h3>
+      <span class="close-modal">&times;</span>
+    </div>
+    <div class="modal-body">
+      <div class="input-group">
+        <label class="input-label">Сумма пополнения (мин. 100 ₽)</label>
+        <input type="number" id="deposit-amount" class="input-field" min="100" value="100">
+      </div>
+      <button id="confirm-deposit" class="btn">Продолжить</button>
+    </div>
+  </div>
+</div>
         
         <div class="section">
             <div class="section-title">
@@ -284,6 +336,85 @@
             isAdmin: false,
             minBet: 50
         };
+
+        const state = {
+    balance: 0,
+    selectedRacer: null,
+    isAdmin: false,
+    minBet: 50,
+    minDeposit: 100
+  };
+
+  // В elements добавляем:
+  const elements = {
+    // ... остальные элементы
+    depositModal: document.getElementById('deposit-modal'),
+    depositAmount: document.getElementById('deposit-amount'),
+    confirmDepositBtn: document.getElementById('confirm-deposit'),
+    closeModalBtn: document.querySelector('.close-modal')
+  };
+
+  // В setupEventListeners добавляем:
+  function setupEventListeners() {
+    // ... остальные обработчики
+    
+    // Обработчики для пополнения
+    elements.depositBtn.addEventListener('click', () => {
+      elements.depositModal.classList.remove('hidden');
+    });
+    
+    elements.closeModalBtn.addEventListener('click', () => {
+      elements.depositModal.classList.add('hidden');
+    });
+    
+    elements.confirmDepositBtn.addEventListener('click', async () => {
+      const amount = parseInt(elements.depositAmount.value);
+      if (amount < state.minDeposit) {
+        showStatus(`Минимальная сумма ${state.minDeposit} ₽`, 'error');
+        return;
+      }
+      
+      await processDeposit(amount);
+      elements.depositModal.classList.add('hidden');
+    });
+  }
+
+  // Обновляем функцию processDeposit:
+  async function processDeposit(amount) {
+    try {
+      showStatus('Подготовка платежа...', 'loading');
+      
+      const userId = tg.initDataUnsafe?.user?.id;
+      if (!userId) {
+        throw new Error('Не удалось определить пользователя');
+      }
+      
+      const response = await fetch(`${SERVER_URL}/api/create-payment`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': JSON.stringify(tg.initDataUnsafe?.user)
+        },
+        body: JSON.stringify({ userId, amount })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Ошибка при создании платежа');
+      }
+      
+      const data = await response.json();
+      
+      if (data.url) {
+        tg.openInvoice({ url: data.url });
+      } else {
+        throw new Error('Не получена ссылка для оплаты');
+      }
+    } catch (error) {
+      showStatus('Ошибка: ' + error.message, 'error');
+      console.error('Deposit error:', error);
+    }
+  }
         
         // Элементы DOM
         const elements = {

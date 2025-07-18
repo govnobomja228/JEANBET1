@@ -107,68 +107,78 @@ app.post('/api/admin/declare-winner', checkAdmin, async (req, res) => {
 });
 
 app.post('/api/create-payment', async (req, res) => {
-  const { userId, amount } = req.body;
-  
-  if (!userId || !amount) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
-
-  if (amount < 100) {
-    return res.status(400).json({ error: 'Minimum amount is 100 RUB' });
-  }
-
-  const paymentData = {
-    amount: { value: amount.toFixed(2), currency: 'RUB' },
-    capture: true,
-    confirmation: {
-      type: 'redirect',
-      return_url: 'https://jeanbet-1-j9dw-eight.vercel.app/success'
-    },
-    description: `Пополнение баланса на ${amount} руб.`,
-    metadata: { userId }
-  };
-
-  const idempotenceKey = crypto.randomBytes(16).toString('hex');
-  const auth = Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
-
   try {
-    const yooResponse = await fetch('https://api.yookassa.ru/v3/payments', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Basic ${auth}`,
-        'Idempotence-Key': idempotenceKey
-      },
-      body: JSON.stringify(paymentData)
+    const { userId, amount } = req.body;
+    
+    if (!userId || !amount) {
+      return res.status(400).json({ error: 'Необходимы userId и amount' });
+    }
+
+    if (amount < 100) {
+      return res.status(400).json({ error: 'Минимальная сумма 100 рублей' });
+    }
+
+    // Создаем запись о платеже в базе
+    await pool.query(
+      'INSERT INTO payments (user_id, amount, status) VALUES ($1, $2, $3)',
+      [userId, amount, 'pending']
+    );
+
+    // Для демонстрации сразу возвращаем успех
+    // В реальном приложении здесь будет интеграция с платежной системой
+    res.json({ 
+      success: true,
+      url: `https://jeanbet-1-j9dw-eight.vercel.app/payment-success?userId=${userId}&amount=${amount}`
     });
     
-    const data = await yooResponse.json();
-    res.json({ url: data.confirmation.confirmation_url });
   } catch (err) {
-    console.error('Payment error:', err);
-    res.status(500).json({ error: 'Payment creation error' });
+    console.error('Payment creation error:', err);
+    res.status(500).json({ error: 'Ошибка создания платежа' });
   }
 });
 
-app.post('/api/yookassa-webhook', async (req, res) => {
+// Эндпоинт для обработки успешного платежа
+app.get('/payment-success', async (req, res) => {
   try {
-    if (req.body.event === 'payment.succeeded') {
-      const payment = req.body.object;
-      const userId = payment.metadata.userId;
-      const amount = parseFloat(payment.amount.value);
-
-      await pool.query(
-        'INSERT INTO users (telegram_id, balance) VALUES ($1, $2) ' +
-        'ON CONFLICT (telegram_id) DO UPDATE SET balance = users.balance + $2',
-        [userId, amount]
-      );
-
-      bot.sendMessage(userId, `✅ Баланс пополнен на ${amount} руб.!`);
+    const { userId, amount } = req.query;
+    
+    if (!userId || !amount) {
+      return res.status(400).send('Неверные параметры');
     }
-    res.sendStatus(200);
+
+    // Обновляем баланс пользователя
+    await pool.query(
+      'UPDATE users SET balance = balance + $1 WHERE telegram_id = $2',
+      [amount, userId]
+    );
+    
+    // Обновляем статус платежа
+    await pool.query(
+      'UPDATE payments SET status = $1 WHERE user_id = $2 AND amount = $3 AND status = $4',
+      ['completed', userId, amount, 'pending']
+    );
+    
+    // Отправляем уведомление пользователю
+    if (bot) {
+      bot.sendMessage(userId, `✅ Ваш баланс пополнен на ${amount} руб.!`);
+    }
+    
+    res.send(`
+      <html>
+        <body>
+          <h1>Платеж успешно завершен!</h1>
+          <p>Ваш баланс пополнен на ${amount} руб.</p>
+          <script>
+            setTimeout(() => {
+              window.Telegram.WebApp.close();
+            }, 3000);
+          </script>
+        </body>
+      </html>
+    `);
   } catch (err) {
-    console.error('Webhook error:', err);
-    res.status(500).send('Internal server error');
+    console.error('Payment success error:', err);
+    res.status(500).send('Ошибка обработки платежа');
   }
 });
 
