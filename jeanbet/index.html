@@ -450,18 +450,23 @@
         const SERVER_URL = 'https://jeanbet-1-j9dw-eight.vercel.app';
         
         // Состояние приложения
-        const state = {
-            balance: 0,
-            selectedRacer: null,
-            isAdmin: false,
-            minBet: 50,
-            minDeposit: 100,
-            minWithdraw: 500,
-            odds: {
-                '1': 1.85,
-                '2': 2.10
-            }
-        };
+  const state = {
+    balance: 500,
+    selectedRacer: null,
+    isAdmin: false,
+    minBet: 50,
+    minDeposit: 100,
+    minWithdraw: 500,
+    odds: {
+      '1': 2.00,
+      '2': 2.00
+    }
+  };
+
+  // Обновление отображения коэффициентов
+  document.getElementById('racer-1-odds').textContent = 'x2.00';
+  document.getElementById('racer-2-odds').textContent = 'x2.00';
+
         
         // Элементы DOM
         const elements = {
