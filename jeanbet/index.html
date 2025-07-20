@@ -6,72 +6,1018 @@
     <title>JEAN Bet - Гонки</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-      :root {
-        --tg-bg: #17212b;
-        --tg-text: #ffffff;
-        --tg-hint: #708499;
-        --tg-primary: #2ea6ff;
-        --tg-button-text: #ffffff;
-        --tg-secondary: #1e2c3a;
-      }
+        :root {
+            --tg-bg: #17212b;
+            --tg-text: #ffffff;
+            --tg-hint: #708499;
+            --tg-primary: #2ea6ff;
+            --tg-button-text: #ffffff;
+            --tg-secondary: #1e2c3a;
+        }
 
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-        -webkit-tap-highlight-color: transparent;
-      }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-        background: var(--tg-bg);
-        color: var(--tg-text);
-        line-height: 1.5;
-        overscroll-behavior-y: contain;
-      }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--tg-bg);
+            color: var(--tg-text);
+            margin: 0;
+            padding: 0;
+            line-height: 1.5;
+            overscroll-behavior-y: contain;
+        }
 
-      input, button, select {
-        font-family: inherit;
-        font-size: inherit;
-        color: inherit;
-        background: var(--tg-secondary);
-        border: none;
-        outline: none;
-      }
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 16px;
+            padding-bottom: 80px;
+        }
 
-      button {
-        cursor: pointer;
-        transition: all 0.2s;
-      }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--tg-secondary);
+        }
 
-      button:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(90deg, #2AABEE, #229ED9);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
 
-      @media (max-width: 480px) {
-        html {
-          font-size: 14px;
+        .balance-card {
+            background: var(--tg-secondary);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .balance-amount {
+            font-size: 28px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+
+        .btn {
+            background: var(--tg-primary);
+            color: var(--tg-button-text);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 16px;
+            font-weight: 500;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--tg-secondary);
+            color: var(--tg-text);
+        }
+
+        .section {
+            background: var(--tg-secondary);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-group {
+            margin-bottom: 16px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 14px;
+            color: var(--tg-hint);
+            margin-bottom: 8px;
+        }
+
+        .input-field {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 14px;
+            font-size: 16px;
+            color: var(--tg-text);
+        }
+
+        .racers {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .racer {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .racer.selected {
+            border-color: var(--tg-primary);
+            background: rgba(46, 166, 255, 0.1);
+        }
+
+        .racer-image {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .racer-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .racer-odds {
+            color: var(--tg-primary);
+            font-weight: bold;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 12px;
+            margin: 16px 0;
+            text-align: center;
+            display: none;
+        }
+
+        .status-success {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+            display: block;
+        }
+
+        .status-error {
+            background: rgba(244, 67, 54, 0.2);
+            color: #F44336;
+            display: block;
+        }
+
+        .admin-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            border: 1px solid var(--tg-primary);
+        }
+
+        /* Модальные окна */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
         }
         
-        input, button {
-          padding: 0.75rem;
-          font-size: 1rem;
+        .modal-content {
+            background-color: var(--tg-secondary);
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            position: relative;
         }
-      }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .close-modal {
+            font-size: 24px;
+            cursor: pointer;
+            position: absolute;
+            right: 20px;
+            top: 15px;
+        }
 
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
+        /* Таблица истории */
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
 
-      .fade-in {
-        animation: fadeIn 0.3s ease-out forwards;
-      }
+        .history-table th, .history-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .history-table th {
+            color: var(--tg-hint);
+            font-weight: 500;
+        }
+
+        .won {
+            color: #4CAF50;
+        }
+
+        .lost {
+            color: #F44336;
+        }
+
+        .pending {
+            color: #FFC107;
+        }
+
+        /* Вкладки */
+        .tabs {
+            display: flex;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            border-bottom: 2px solid var(--tg-primary);
+            color: var(--tg-primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Мобильная адаптация */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+                padding-bottom: 70px;
+            }
+            
+            .balance-card {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .btn {
+                padding: 10px;
+                font-size: 14px;
+            }
+            
+            .racers {
+                grid-template-columns: 1fr;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 20% auto;
+            }
+            
+            .tabs {
+                overflow-x: auto;
+                white-space: nowrap;
+                padding-bottom: 5px;
+            }
+            
+            .tab {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+            
+            .history-table {
+                font-size: 14px;
+            }
+            
+            .history-table th, .history-table td {
+                padding: 6px;
+            }
+        }
+
+        /* Анимации */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
     </style>
 </head>
 <body>
-    <div id="root"></div>
-    <script src="/App.js"></script>
+    <div class="container">
+        <div class="header">
+            <div class="title">JEAN Bet</div>
+        </div>
+        
+        <div class="balance-card">
+            <div>
+                <div style="font-size: 14px; color: var(--tg-hint);">Ваш баланс</div>
+                <div class="balance-amount">
+                    <span id="balance">0</span> ₽
+                </div>
+            </div>
+            <button id="deposit-btn" class="btn btn-secondary">Пополнить</button>
+            <button id="withdraw-btn" class="btn btn-secondary" style="margin-left: 8px;">Вывести</button>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="bet">Ставки</div>
+            <div class="tab" data-tab="history">История</div>
+        </div>
+
+        <div class="tab-content active" id="bet-tab">
+            <div class="section">
+                <div class="section-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 8V12L15 15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"/>
+                    </svg>
+                    Сделать ставку
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Сумма ставки (мин. 50 ₽)</label>
+                    <input type="number" id="bet-amount" class="input-field" min="50" value="50">
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Выберите гонщика</label>
+                    <div class="racers">
+                        <div class="racer" id="racer-1" data-id="1">
+                            <img src="https://via.placeholder.com/64?text=MV" class="racer-image">
+                            <div class="racer-name">Гонщик 1</div>
+                            <div class="racer-odds" id="racer-1-odds">x2.00</div>
+                        </div>
+                        <div class="racer" id="racer-2" data-id="2">
+                            <img src="https://via.placeholder.com/64?text=LH" class="racer-image">
+                            <div class="racer-name">Гонщик 2</div>
+                            <div class="racer-odds" id="racer-2-odds">x2.00</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin: 16px 0; color: var(--tg-hint);">
+                    Потенциальный выигрыш: <span id="potential-win" style="color: var(--tg-primary); font-weight: bold;">0</span> ₽
+                </div>
+                
+                <button id="place-bet" class="btn" disabled>
+                    Сделать ставку
+                </button>
+                
+                <div id="status-message" class="status"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="history-tab">
+            <div class="section">
+                <div class="section-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 6C3 4.34315 4.34315 3 6 3H18C19.6569 3 21 4.34315 21 6V18C21 19.6569 19.6569 21 18 21H6C4.34315 21 3 19.6569 3 18V6Z"/>
+                        <path d="M3 10H21M7 3V10M17 3V10"/>
+                    </svg>
+                    История ставок
+                </div>
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Сумма</th>
+                            <th>Гонщик</th>
+                            <th>Статус</th>
+                            <th>Выигрыш</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bets-history">
+                        <!-- История будет загружена динамически -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Модальное окно пополнения -->
+        <div id="deposit-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Пополнение баланса</h3>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="input-group">
+                        <label class="input-label">Сумма пополнения (мин. 100 ₽)</label>
+                        <input type="number" id="deposit-amount" class="input-field" min="100" value="100">
+                    </div>
+                    <div class="quick-amounts" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px;">
+                        <button class="btn btn-secondary quick-amount" data-amount="100">100 ₽</button>
+                        <button class="btn btn-secondary quick-amount" data-amount="500">500 ₽</button>
+                        <button class="btn btn-secondary quick-amount" data-amount="1000">1000 ₽</button>
+                        <button class="btn btn-secondary quick-amount" data-amount="5000">5000 ₽</button>
+                    </div>
+                    <button id="confirm-deposit" class="btn">Продолжить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модальное окно вывода -->
+        <div id="withdraw-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Вывод средств</h3>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="input-group">
+                        <label class="input-label">Сумма вывода (мин. 500 ₽)</label>
+                        <input type="number" id="withdraw-amount" class="input-field" min="500" value="500">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Реквизиты (номер карты или USDT)</label>
+                        <input type="text" id="withdraw-details" class="input-field" placeholder="0000 0000 0000 0000">
+                    </div>
+                    <button id="confirm-withdraw" class="btn">Заказать выплату</button>
+                    <div id="withdraw-status" class="status"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Админ-панель (будет показана только админу) -->
+        <div id="admin-panel" class="admin-panel hidden">
+            <div class="section-title">Админ-панель</div>
+            <div class="input-group">
+                <label class="input-label">Выберите победителя гонки</label>
+                <select id="winner-select" class="input-field">
+                    <option value="">-- Не выбрано --</option>
+                    <option value="1">Гонщик 1</option>
+                    <option value="2">Гонщик 2</option>
+                </select>
+            </div>
+            <button id="declare-winner" class="btn">Объявить победителя</button>
+            <div id="admin-status" class="status"></div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        const SERVER_URL = 'https://jeanbet-1-j9dw-eight.vercel.app';
+        
+        // Состояние приложения
+        const state = {
+            balance: 0,
+            selectedRacer: null,
+            isAdmin: false,
+            minBet: 50,
+            minDeposit: 100,
+            minWithdraw: 500,
+            odds: {
+                '1': 2.00,
+                '2': 2.00
+            }
+        };
+        
+        // Элементы DOM
+        const elements = {
+            balance: document.getElementById('balance'),
+            depositBtn: document.getElementById('deposit-btn'),
+            withdrawBtn: document.getElementById('withdraw-btn'),
+            betAmount: document.getElementById('bet-amount'),
+            racer1: document.getElementById('racer-1'),
+            racer2: document.getElementById('racer-2'),
+            placeBetBtn: document.getElementById('place-bet'),
+            potentialWin: document.getElementById('potential-win'),
+            statusMessage: document.getElementById('status-message'),
+            adminPanel: document.getElementById('admin-panel'),
+            winnerSelect: document.getElementById('winner-select'),
+            declareWinnerBtn: document.getElementById('declare-winner'),
+            adminStatus: document.getElementById('admin-status'),
+            depositModal: document.getElementById('deposit-modal'),
+            depositAmount: document.getElementById('deposit-amount'),
+            confirmDepositBtn: document.getElementById('confirm-deposit'),
+            withdrawModal: document.getElementById('withdraw-modal'),
+            withdrawAmount: document.getElementById('withdraw-amount'),
+            withdrawDetails: document.getElementById('withdraw-details'),
+            confirmWithdrawBtn: document.getElementById('confirm-withdraw'),
+            withdrawStatus: document.getElementById('withdraw-status'),
+            closeModalBtns: document.querySelectorAll('.close-modal'),
+            tabs: document.querySelectorAll('.tab'),
+            tabContents: document.querySelectorAll('.tab-content'),
+            betsHistory: document.getElementById('bets-history'),
+            quickAmounts: document.querySelectorAll('.quick-amount')
+        };
+        
+        // Инициализация приложения
+        async function initApp() {
+            tg.expand();
+            tg.enableClosingConfirmation();
+            
+            // Проверяем роль пользователя
+            await checkUserRole();
+            
+            // Загружаем баланс и историю
+            await loadBalance();
+            await loadBetsHistory();
+            
+            // Настраиваем обработчики событий
+            setupEventListeners();
+            
+            // Обновляем интерфейс
+            updateUI();
+        }
+        
+        // Проверяем, является ли пользователь админом
+        async function checkUserRole() {
+            try {
+                const userId = tg.initDataUnsafe?.user?.id;
+                if (!userId) return;
+                
+                const response = await fetch(`${SERVER_URL}/api/check-role?userId=${userId}`);
+                const data = await response.json();
+                
+                if (data.isAdmin) {
+                    state.isAdmin = true;
+                    elements.adminPanel.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Role check error:', error);
+            }
+        }
+        
+        // Загружаем баланс пользователя
+        async function loadBalance() {
+            try {
+                const userId = tg.initDataUnsafe?.user?.id;
+                if (!userId) return;
+                
+                const response = await fetch(`${SERVER_URL}/api/balance/${userId}`);
+                const data = await response.json();
+                
+                if (data.balance !== undefined) {
+                    state.balance = data.balance;
+                    updateBalanceDisplay();
+                }
+            } catch (error) {
+                console.error('Balance load error:', error);
+            }
+        }
+        
+        // Загружаем историю ставок
+        async function loadBetsHistory() {
+            try {
+                const userId = tg.initDataUnsafe?.user?.id;
+                if (!userId) return;
+                
+                const response = await fetch(`${SERVER_URL}/api/bets/history?userId=${userId}`);
+                const data = await response.json();
+                
+                if (data.bets) {
+                    renderBetsHistory(data.bets);
+                }
+            } catch (error) {
+                console.error('History load error:', error);
+            }
+        }
+        
+        // Отображаем историю ставок
+        function renderBetsHistory(bets) {
+            elements.betsHistory.innerHTML = '';
+            
+            if (bets.length === 0) {
+                elements.betsHistory.innerHTML = '<tr><td colspan="5" style="text-align: center;">Нет ставок</td></tr>';
+                return;
+            }
+            
+            bets.forEach(bet => {
+                const row = document.createElement('tr');
+                row.classList.add('fade-in');
+                
+                const date = new Date(bet.created_at).toLocaleString();
+                const statusClass = bet.status === 'won' ? 'won' : 
+                                  bet.status === 'lost' ? 'lost' : 'pending';
+                const winAmount = bet.status === 'won' ? (bet.amount * bet.odds).toFixed(2) : '-';
+                
+                row.innerHTML = `
+                    <td>${date}</td>
+                    <td>${bet.amount.toFixed(2)} ₽</td>
+                    <td>Гонщик ${bet.racer_id}</td>
+                    <td class="${statusClass}">${getStatusText(bet.status)}</td>
+                    <td>${winAmount} ₽</td>
+                `;
+                
+                elements.betsHistory.appendChild(row);
+            });
+        }
+        
+        function getStatusText(status) {
+            const statusMap = {
+                'won': 'Выиграш',
+                'lost': 'Проигрыш',
+                'pending': 'В процессе'
+            };
+            return statusMap[status] || status;
+        }
+        
+        // Настраиваем обработчики событий
+        function setupEventListeners() {
+            // Выбор гонщика
+            elements.racer1.addEventListener('click', () => {
+                state.selectedRacer = 1;
+                updateRacerSelection();
+                updatePotentialWin();
+                validateBet();
+            });
+            
+            elements.racer2.addEventListener('click', () => {
+                state.selectedRacer = 2;
+                updateRacerSelection();
+                updatePotentialWin();
+                validateBet();
+            });
+            
+            // Изменение суммы ставки
+            elements.betAmount.addEventListener('input', () => {
+                updatePotentialWin();
+                validateBet();
+            });
+            
+            // Кнопка пополнения баланса
+            elements.depositBtn.addEventListener('click', () => {
+                elements.depositModal.classList.remove('hidden');
+            });
+            
+            // Кнопка вывода средств
+            elements.withdrawBtn.addEventListener('click', () => {
+                elements.withdrawModal.classList.remove('hidden');
+            });
+            
+            // Быстрый выбор суммы пополнения
+            elements.quickAmounts.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    elements.depositAmount.value = btn.dataset.amount;
+                });
+            });
+            
+            // Подтверждение пополнения
+            elements.confirmDepositBtn.addEventListener('click', async () => {
+                const amount = parseInt(elements.depositAmount.value);
+                if (amount < state.minDeposit) {
+                    showStatus(`Минимальная сумма ${state.minDeposit} ₽`, 'error');
+                    return;
+                }
+                
+                await processDeposit(amount);
+                elements.depositModal.classList.add('hidden');
+            });
+            
+            // Подтверждение вывода
+            elements.confirmWithdrawBtn.addEventListener('click', async () => {
+                const amount = parseFloat(elements.withdrawAmount.value);
+                const details = elements.withdrawDetails.value.trim();
+                
+                if (amount < state.minWithdraw) {
+                    showWithdrawStatus(`Минимальная сумма вывода ${state.minWithdraw} ₽`, 'error');
+                    return;
+                }
+                
+                if (amount > state.balance) {
+                    showWithdrawStatus('Недостаточно средств', 'error');
+                    return;
+                }
+                
+                if (!details) {
+                    showWithdrawStatus('Укажите реквизиты', 'error');
+                    return;
+                }
+                
+                await processWithdraw(amount, details);
+            });
+            
+            // Кнопка ставки
+            elements.placeBetBtn.addEventListener('click', placeBet);
+            
+            // Кнопка объявления победителя (для админа)
+            elements.declareWinnerBtn.addEventListener('click', declareWinner);
+            
+            // Закрытие модальных окон
+            elements.closeModalBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    elements.depositModal.classList.add('hidden');
+                    elements.withdrawModal.classList.add('hidden');
+                });
+            });
+            
+            // Переключение вкладок
+            elements.tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    elements.tabs.forEach(t => t.classList.remove('active'));
+                    elements.tabContents.forEach(c => c.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    const tabId = tab.dataset.tab + '-tab';
+                    document.getElementById(tabId).classList.add('active');
+                    
+                    if (tab.dataset.tab === 'history') {
+                        loadBetsHistory();
+                    }
+                });
+            });
+        }
+        
+        // Обработка пополнения баланса
+        async function processDeposit(amount) {
+            try {
+                showStatus('Подготовка платежа...', 'loading');
+                
+                const userId = tg.initDataUnsafe?.user?.id;
+                if (!userId) {
+                    throw new Error('Не удалось определить пользователя');
+                }
+                
+                const response = await fetch(`${SERVER_URL}/api/create-payment`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': JSON.stringify(tg.initDataUnsafe?.user)
+                    },
+                    body: JSON.stringify({ userId, amount })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Ошибка при создании платежа');
+                }
+                
+                const data = await response.json();
+                
+                if (data.url) {
+                    tg.openInvoice({ url: data.url });
+                } else {
+                    throw new Error('Не получена ссылка для оплаты');
+                }
+            } catch (error) {
+                showStatus('Ошибка: ' + error.message, 'error');
+                console.error('Deposit error:', error);
+            }
+        }
+        
+        // Обработка вывода средств
+        async function processWithdraw(amount, details) {
+            try {
+                showWithdrawStatus('Обработка запроса...', 'loading');
+                elements.confirmWithdrawBtn.disabled = true;
+                
+                const userId = tg.initDataUnsafe?.user?.id;
+                if (!userId) {
+                    throw new Error('Не удалось определить пользователя');
+                }
+                
+                const response = await fetch(`${SERVER_URL}/api/withdraw`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': JSON.stringify(tg.initDataUnsafe?.user)
+                    },
+                    body: JSON.stringify({ userId, amount, details })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Ошибка при выводе средств');
+                }
+                
+                const data = await response.json();
+                showWithdrawStatus(data.message || 'Запрос на вывод принят!', 'success');
+                
+                // Обновляем баланс
+                state.balance -= amount;
+                updateBalanceDisplay();
+                
+                // Закрываем окно через 2 секунды
+                setTimeout(() => {
+                    elements.withdrawModal.classList.add('hidden');
+                }, 2000);
+            } catch (error) {
+                showWithdrawStatus('Ошибка: ' + error.message, 'error');
+                console.error('Withdraw error:', error);
+            } finally {
+                elements.confirmWithdrawBtn.disabled = false;
+            }
+        }
+        
+        // Размещение ставки
+        async function placeBet() {
+            if (!validateBet()) return;
+            
+            const amount = parseFloat(elements.betAmount.value);
+            const racerId = state.selectedRacer;
+            
+            try {
+                showStatus('Обработка ставки...', 'loading');
+                elements.placeBetBtn.disabled = true;
+                
+                const response = await fetch(`${SERVER_URL}/api/bets`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': JSON.stringify(tg.initDataUnsafe?.user)
+                    },
+                    body: JSON.stringify({
+                        userId: tg.initDataUnsafe?.user?.id,
+                        amount,
+                        racerId
+                    })
+                });
+                
+                if (response.ok) {
+                    state.balance -= amount;
+                    updateBalanceDisplay();
+                    showStatus('Ставка принята!', 'success');
+                    await loadBetsHistory();
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Ошибка ставки');
+                }
+            } catch (error) {
+                showStatus('Ошибка: ' + error.message, 'error');
+            } finally {
+                elements.placeBetBtn.disabled = false;
+            }
+        }
+        
+        // Объявление победителя (админ)
+        async function declareWinner() {
+            const winner = elements.winnerSelect.value;
+            if (!winner) {
+                showAdminStatus('Выберите победителя', 'error');
+                return;
+            }
+            
+            try {
+                showAdminStatus('Обработка...', 'loading');
+                elements.declareWinnerBtn.disabled = true;
+                
+                const response = await fetch(`${SERVER_URL}/api/admin/declare-winner`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': JSON.stringify(tg.initDataUnsafe?.user)
+                    },
+                    body: JSON.stringify({ winner })
+                });
+                
+                if (response.ok) {
+                    showAdminStatus('Победитель объявлен!', 'success');
+                    await loadBalance();
+                    await loadBetsHistory();
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Ошибка');
+                }
+            } catch (error) {
+                showAdminStatus('Ошибка: ' + error.message, 'error');
+            } finally {
+                elements.declareWinnerBtn.disabled = false;
+            }
+        }
+        
+        // Обновление интерфейса
+        function updateUI() {
+            updateBalanceDisplay();
+            updatePotentialWin();
+            validateBet();
+        }
+        
+        // Обновление отображения баланса
+        function updateBalanceDisplay() {
+            elements.balance.textContent = state.balance.toFixed(2);
+            elements.withdrawBtn.disabled = state.balance < state.minWithdraw;
+        }
+        
+        // Обновление выбора гонщика
+        function updateRacerSelection() {
+            elements.racer1.classList.toggle('selected', state.selectedRacer === 1);
+            elements.racer2.classList.toggle('selected', state.selectedRacer === 2);
+        }
+        
+        // Расчет потенциального выигрыша
+        function updatePotentialWin() {
+            const amount = parseFloat(elements.betAmount.value) || 0;
+            const odds = state.odds[state.selectedRacer] || 0;
+            elements.potentialWin.textContent = (amount * odds).toFixed(2);
+        }
+        
+        // Валидация ставки
+        function validateBet() {
+            const amount = parseFloat(elements.betAmount.value) || 0;
+            const isValid = amount >= state.minBet && 
+                          amount <= state.balance && 
+                          state.selectedRacer !== null;
+            
+            elements.placeBetBtn.disabled = !isValid;
+            return isValid;
+        }
+        
+        // Показать статус
+        function showStatus(message, type) {
+            elements.statusMessage.textContent = message;
+            elements.statusMessage.className = 'status';
+            
+            if (type === 'success') {
+                elements.statusMessage.classList.add('status-success');
+            } else if (type === 'error') {
+                elements.statusMessage.classList.add('status-error');
+            }
+            
+            setTimeout(() => {
+                elements.statusMessage.className = 'status';
+            }, 3000);
+        }
+        
+        // Показать статус для админа
+        function showAdminStatus(message, type) {
+            elements.adminStatus.textContent = message;
+            elements.adminStatus.className = 'status';
+            
+            if (type === 'success') {
+                elements.adminStatus.classList.add('status-success');
+            } else if (type === 'error') {
+                elements.adminStatus.classList.add('status-error');
+            }
+            
+            setTimeout(() => {
+                elements.adminStatus.className = 'status';
+            }, 3000);
+        }
+        
+        // Показать статус вывода
+        function showWithdrawStatus(message, type) {
+            elements.withdrawStatus.textContent = message;
+            elements.withdrawStatus.className = 'status';
+            
+            if (type === 'success') {
+                elements.withdrawStatus.classList.add('status-success');
+            } else if (type === 'error') {
+                elements.withdrawStatus.classList.add('status-error');
+            }
+            
+            setTimeout(() => {
+                elements.withdrawStatus.className = 'status';
+            }, 3000);
+        }
+        
+        // Запуск приложения
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
 </body>
 </html>
