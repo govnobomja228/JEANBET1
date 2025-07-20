@@ -26,8 +26,6 @@
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--tg-bg);
             color: var(--tg-text);
-            margin: 0;
-            padding: 0;
             line-height: 1.5;
             overscroll-behavior-y: contain;
         }
@@ -579,18 +577,13 @@
         // Проверяем, является ли пользователь админом
         async function checkUserRole() {
             try {
-                const userId = tg.initDataUnsafe?.user?.id;
-                if (!userId) return;
-                
-                const response = await fetch(`${SERVER_URL}/api/check-role?userId=${userId}`);
-                const data = await response.json();
-                
-                if (data.isAdmin) {
+                const user = tg.initDataUnsafe?.user;
+                if (user?.username === 'bus1o') {
                     state.isAdmin = true;
                     elements.adminPanel.classList.remove('hidden');
                 }
             } catch (error) {
-                console.error('Role check error:', error);
+                console.error('Admin check error:', error);
             }
         }
         
@@ -618,7 +611,11 @@
                 const userId = tg.initDataUnsafe?.user?.id;
                 if (!userId) return;
                 
-                const response = await fetch(`${SERVER_URL}/api/bets/history?userId=${userId}`);
+                const response = await fetch(`${SERVER_URL}/api/bets/history`, {
+                    headers: {
+                        'Authorization': JSON.stringify(tg.initDataUnsafe?.user)
+                    }
+                });
                 const data = await response.json();
                 
                 if (data.bets) {
@@ -650,7 +647,7 @@
                 row.innerHTML = `
                     <td>${date}</td>
                     <td>${bet.amount.toFixed(2)} ₽</td>
-                    <td>Гонщик ${bet.racer_id}</td>
+                    <td>${bet.racer_name || 'Гонщик ' + bet.racer_id}</td>
                     <td class="${statusClass}">${getStatusText(bet.status)}</td>
                     <td>${winAmount} ₽</td>
                 `;
@@ -916,13 +913,14 @@
                     body: JSON.stringify({ winner })
                 });
                 
+                const data = await response.json();
+                
                 if (response.ok) {
-                    showAdminStatus('Победитель объявлен!', 'success');
+                    showAdminStatus(data.message || 'Победитель объявлен!', 'success');
                     await loadBalance();
                     await loadBetsHistory();
                 } else {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Ошибка');
+                    throw new Error(data.error || 'Ошибка');
                 }
             } catch (error) {
                 showAdminStatus('Ошибка: ' + error.message, 'error');
