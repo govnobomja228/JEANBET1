@@ -13,7 +13,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Настройка загрузки файлов
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'public/uploads/');
@@ -28,6 +27,7 @@ const PORT = process.env.PORT || 3000;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'secureadmin123';
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
+const SERVER_URL = process.env.SERVER_URL;
 
 const pool = new Pool({
   connectionString: process.env.POSTGRES_URL,
@@ -67,9 +67,13 @@ async function initDB() {
         is_active BOOLEAN DEFAULT TRUE
       );
       
-      CREATE TABLE IF NOT EXISTS site_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT
+      CREATE TABLE IF NOT EXISTS payments (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        status TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
@@ -120,6 +124,138 @@ const checkAdmin = async (req, res, next) => {
   }
 };
 
+// API для ставок
+app.post('/api/bets', authenticate, async (req, res) => {
+  try {
+    const { amount, racerId, userId } = req.body;
+    
+    if (!amount || !racerId || !userId) {
+      return res.status(400).json({ error: 'Amount, racerId and userId are required' });
+    }
+
+    if (amount < 50) {
+      return res.status(400).json({ error: 'Minimum bet is 50' });
+    }
+
+    await pool.query('BEGIN');
+    
+    // Проверяем баланс
+    const user = await pool.query(
+      'SELECT balance FROM users WHERE telegram_id = $1 FOR UPDATE',
+      [userId]
+    );
+    
+    if (user.rows.length === 0 || user.rows[0].balance < amount) {
+      await pool.query('ROLLBACK');
+      return res.status(400).json({ error: 'Insufficient funds' });
+    }
+
+    // Создаем ставку с фиксированным коэффициентом 2.00
+    await pool.query(
+      'INSERT INTO bets (user_id, amount, racer_id, odds) VALUES ($1, $2, $3, 2.00)',
+      [userId, amount, racerId]
+    );
+
+    // Списание средств
+    await pool.query(
+      'UPDATE users SET balance = balance - $1 WHERE telegram_id = $2',
+      [amount, userId]
+    );
+
+    await pool.query('COMMIT');
+    res.json({ success: true });
+  } catch (err) {
+    await pool.query('ROLLBACK');
+    console.error('Bet error:', err);
+    res.status(500).json({ error: 'Failed to place bet' });
+  }
+});
+
+// API для истории ставок
+app.get('/api/bets/history', authenticate, async (req, res) => {
+  try {
+    const { limit = 20, offset = 0 } = req.query;
+    const userId = req.user.id;
+    
+    const result = await pool.query(
+      `SELECT 
+        b.id, 
+        b.amount, 
+        b.racer_id, 
+        b.odds, 
+        b.status, 
+        b.created_at,
+        r.name as racer_name,
+        r.image_url as racer_image
+      FROM bets b
+      LEFT JOIN racers r ON b.racer_id = r.id
+      WHERE b.user_id = $1 
+      ORDER BY b.created_at DESC 
+      LIMIT $2 OFFSET $3`,
+      [userId, limit, offset]
+    );
+    
+    res.json({ bets: result.rows });
+  } catch (err) {
+    console.error('Bets history error:', err);
+    res.status(500).json({ error: 'Failed to get bets history' });
+  }
+});
+
+// API для объявления победителя
+app.post('/api/admin/declare-winner', authenticate, checkAdmin, async (req, res) => {
+  try {
+    const { winner } = req.body;
+    
+    if (!winner) {
+      return res.status(400).json({ error: 'Winner is required' });
+    }
+
+    await pool.query('BEGIN');
+    
+    // Находим все активные ставки
+    const bets = await pool.query(
+      'SELECT * FROM bets WHERE status = $1 FOR UPDATE',
+      ['pending']
+    );
+
+    for (const bet of bets.rows) {
+      if (bet.racer_id === winner) {
+        const winAmount = bet.amount * 2.00; // Фиксированный коэффициент 2.00
+        
+        // Начисляем выигрыш
+        await pool.query(
+          'UPDATE users SET balance = balance + $1 WHERE telegram_id = $2',
+          [winAmount, bet.user_id]
+        );
+        
+        // Обновляем статус ставки
+        await pool.query(
+          'UPDATE bets SET status = $1, updated_at = NOW() WHERE id = $2',
+          ['won', bet.id]
+        );
+        
+        // Уведомляем пользователя
+        if (bot) {
+          bot.sendMessage(bet.user_id, `🎉 Вы выиграли ${winAmount.toFixed(2)} руб.!`);
+        }
+      } else {
+        await pool.query(
+          'UPDATE bets SET status = $1, updated_at = NOW() WHERE id = $2',
+          ['lost', bet.id]
+        );
+      }
+    }
+
+    await pool.query('COMMIT');
+    res.json({ success: true, message: 'Bets settled successfully' });
+  } catch (err) {
+    await pool.query('ROLLBACK');
+    console.error('Settle bets error:', err);
+    res.status(500).json({ error: 'Failed to settle bets' });
+  }
+});
+
 // API для входа в админ-панель
 app.post('/api/admin/login', authenticate, async (req, res) => {
   try {
@@ -148,7 +284,7 @@ app.post('/api/admin/racers', authenticate, checkAdmin, upload.single('image'), 
 
     const result = await pool.query(
       'INSERT INTO racers (name, odds, image_url, is_active) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, odds, imageUrl, is_active === 'true']
+      [name, odds || 2.00, imageUrl, is_active === 'true']
     );
 
     res.json({ racer: result.rows[0] });
@@ -195,33 +331,43 @@ app.get('/api/racers', async (req, res) => {
   }
 });
 
-// API для изменения настроек сайта
-app.post('/api/admin/settings', authenticate, checkAdmin, async (req, res) => {
+// API для баланса
+app.get('/api/balance/:userId', async (req, res) => {
   try {
-    const { key, value } = req.body;
-    
-    await pool.query(
-      'INSERT INTO site_settings (key, value) VALUES ($1, $2) ' +
-      'ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
-      [key, value]
+    const { userId } = req.params;
+    const result = await pool.query(
+      'SELECT balance FROM users WHERE telegram_id = $1',
+      [userId]
     );
-
-    res.json({ success: true });
+    
+    if (result.rows.length === 0) {
+      return res.json({ balance: 0 });
+    }
+    
+    res.json({ balance: result.rows[0].balance });
   } catch (err) {
-    console.error('Update settings error:', err);
-    res.status(500).json({ error: 'Failed to update settings' });
+    console.error('Balance error:', err);
+    res.status(500).json({ error: 'Failed to get balance' });
   }
 });
 
-// Остальные API (ставки, баланс и т.д.) остаются как в предыдущей версии
-// ... [остальной код из предыдущего server.js]
+// Health check
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+// Обработка ошибок
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 // Запуск сервера
 initDB().then(() => {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     if (bot) {
-      bot.setWebHook(`${process.env.SERVER_URL}/bot${TELEGRAM_BOT_TOKEN}`);
+      bot.setWebHook(`${SERVER_URL}/bot${TELEGRAM_BOT_TOKEN}`);
     }
   });
 }).catch(err => {
