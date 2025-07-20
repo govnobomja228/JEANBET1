@@ -8,6 +8,10 @@
     {
       "src": "index.html",
       "use": "@vercel/static"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -25,6 +29,10 @@
       "dest": "/server.js"
     },
     {
+      "src": "/uploads/(.*)",
+      "dest": "/public/uploads/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
@@ -32,6 +40,8 @@
   "env": {
     "TELEGRAM_BOT_TOKEN": "6040187426:AAGG7YZMryaLNch-JenpHmowS0O-0YIiAPY",
     "POSTGRES_URL": "postgres://postgres.vaxvsksypoiswanqgkbc:xVnqRa0BMcqGFBx6@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
-    "ADMIN_CHAT_ID": "2011575464"
+    "ADMIN_CHAT_ID": "2011575464",
+    "ADMIN_PASSWORD": "secureadmin123",
+    "SERVER_URL": "https://jeanbet-1-j9dw-eight.vercel.app"
   }
 }

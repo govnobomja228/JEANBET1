@@ -9,6 +9,8 @@ import { useState, useEffect } from 'react';
 function App() {
   const [activeTab, setActiveTab] = useState('bet');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -26,6 +28,13 @@ function App() {
     checkAdmin();
   }, []);
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && e.target.value.toLowerCase() === 'admin') {
+      setShowAdminLogin(true);
+      setAdminPassword('');
+    }
+  };
+
   return (
     <Web3ReactProvider getLibrary={getLibrary}>
       <div className="min-h-screen bg-gray-900 text-white">
@@ -37,38 +46,43 @@ function App() {
         </header>
 
         <main className="container mx-auto p-4 mt-8">
-          <div className="flex space-x-4 mb-6">
-            <button 
-              onClick={() => setActiveTab('bet')}
-              className={`px-4 py-2 rounded-lg ${
-                activeTab === 'bet' ? 'bg-blue-600' : 'bg-gray-700'
-              }`}
-            >
-              Ставки
-            </button>
-            <button 
-              onClick={() => setActiveTab('deposit')}
-              className={`px-4 py-2 rounded-lg ${
-                activeTab === 'deposit' ? 'bg-blue-600' : 'bg-gray-700'
-              }`}
-            >
-              Пополнить USDT
-            </button>
-            {isAdmin && (
-              <button 
-                onClick={() => setActiveTab('admin')}
-                className={`px-4 py-2 rounded-lg ${
-                  activeTab === 'admin' ? 'bg-blue-600' : 'bg-gray-700'
-                }`}
-              >
-                Admin Panel
-              </button>
-            )}
-          </div>
+          {showAdminLogin ? (
+            <AdminPanel />
+          ) : (
+            <>
+              <div className="flex space-x-4 mb-6">
+                <button 
+                  onClick={() => setActiveTab('bet')}
+                  className={`px-4 py-2 rounded-lg ${
+                    activeTab === 'bet' ? 'bg-blue-600' : 'bg-gray-700'
+                  }`}
+                >
+                  Ставки
+                </button>
+                <button 
+                  onClick={() => setActiveTab('deposit')}
+                  className={`px-4 py-2 rounded-lg ${
+                    activeTab === 'deposit' ? 'bg-blue-600' : 'bg-gray-700'
+                  }`}
+                >
+                  Пополнить USDT
+                </button>
+                {isAdmin && (
+                  <input
+                    type="text"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Enter admin password"
+                    className="px-4 py-2 bg-gray-700 rounded-lg text-white"
+                  />
+                )}
+              </div>
 
-          {activeTab === 'bet' ? <RaceBetting /> : 
-           activeTab === 'deposit' ? <USDTDeposit /> : 
-           isAdmin ? <AdminPanel /> : null}
+              {activeTab === 'bet' ? <RaceBetting /> : 
+               activeTab === 'deposit' ? <USDTDeposit /> : null}
+            </>
+          )}
         </main>
       </div>
     </Web3ReactProvider>

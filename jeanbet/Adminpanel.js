@@ -1,73 +1,364 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 
 export default function AdminPanel() {
-  const [raceId, setRaceId] = useState('');
+  const [password, setPassword] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeTab, setActiveTab] = useState('racers');
+  const [racers, setRacers] = useState([]);
+  const [newRacer, setNewRacer] = useState({ name: '', odds: 2.00, is_active: true });
   const [winner, setWinner] = useState('');
   const [message, setMessage] = useState('');
+  const [siteSettings, setSiteSettings] = useState({
+    siteName: 'JEAN Bet',
+    minBet: 50,
+    minDeposit: 100
+  });
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadRacers();
+      loadSettings();
+    }
+  }, [isAuthenticated]);
+
+  const loadRacers = async () => {
+    try {
+      const response = await axios.get('/api/racers');
+      setRacers(response.data.racers);
+    } catch (error) {
+      setMessage('Error loading racers: ' + error.message);
+    }
+  };
+
+  const loadSettings = async () => {
+    try {
+      // Здесь должна быть загрузка настроек с сервера
+      // const response = await axios.get('/api/settings');
+      // setSiteSettings(response.data.settings);
+    } catch (error) {
+      setMessage('Error loading settings: ' + error.message);
+    }
+  };
+
+  const handleLogin = async () => {
+    try {
+      const response = await axios.post('/api/admin/login', { password });
+      if (response.data.success) {
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      setMessage('Invalid password');
+    }
+  };
+
+  const handleAddRacer = async () => {
+    try {
+      const formData = new FormData();
+      formData.append('name', newRacer.name);
+      formData.append('odds', newRacer.odds);
+      formData.append('is_active', newRacer.is_active);
+      
+      if (newRacer.image) {
+        formData.append('image', newRacer.image);
+      }
+
+      const response = await axios.post('/api/admin/racers', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      setRacers([...racers, response.data.racer]);
+      setNewRacer({ name: '', odds: 2.00, is_active: true });
+      setMessage('Racer added successfully');
+    } catch (error) {
+      setMessage('Error adding racer: ' + error.message);
+    }
+  };
+
+  const handleUpdateRacer = async (id, updates) => {
+    try {
+      const formData = new FormData();
+      if (updates.name) formData.append('name', updates.name);
+      if (updates.odds) formData.append('odds', updates.odds);
+      if (updates.is_active !== undefined) formData.append('is_active', updates.is_active);
+      if (updates.image) formData.append('image', updates.image);
+
+      const response = await axios.put(`/api/admin/racers/${id}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      setRacers(racers.map(r => r.id === id ? response.data.racer : r));
+      setMessage('Racer updated successfully');
+    } catch (error) {
+      setMessage('Error updating racer: ' + error.message);
+    }
+  };
 
   const declareWinner = async () => {
-    if (!raceId || !winner) {
-      setMessage('Please fill all fields');
+    if (!winner) {
+      setMessage('Please select winner');
       return;
     }
 
     try {
-      const response = await fetch('/api/admin/declare-winner', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ raceId, winner }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
-      const data = await response.json();
-      setMessage(data.message || 'Winner declared successfully!');
+      const response = await axios.post('/api/admin/declare-winner', { winner });
+      setMessage(response.data.message || 'Winner declared successfully!');
     } catch (error) {
       setMessage('Error declaring winner: ' + error.message);
     }
   };
 
+  const updateSetting = async (key, value) => {
+    try {
+      await axios.post('/api/admin/settings', { key, value });
+      setSiteSettings({ ...siteSettings, [key]: value });
+      setMessage('Setting updated successfully');
+    } catch (error) {
+      setMessage('Error updating setting: ' + error.message);
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="bg-gray-800 p-6 rounded-lg max-w-md mx-auto mt-10">
+        <h2 className="text-xl font-bold mb-4">Admin Login</h2>
+        <div className="mb-4">
+          <label className="block mb-2">Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-2 bg-gray-700 rounded"
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+          />
+        </div>
+        <button
+          onClick={handleLogin}
+          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded w-full"
+        >
+          Login
+        </button>
+        {message && <div className="mt-4 p-2 bg-gray-700 rounded">{message}</div>}
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gray-800 p-6 rounded-lg">
-      <h2 className="text-xl font-bold mb-4">Admin Panel</h2>
-      
-      <div className="mb-4">
-        <label className="block mb-2">Race ID</label>
-        <input
-          type="text"
-          value={raceId}
-          onChange={(e) => setRaceId(e.target.value)}
-          className="w-full p-2 bg-gray-700 rounded"
-          required
-        />
-      </div>
-      
-      <div className="mb-4">
-        <label className="block mb-2">Winner</label>
-        <select
-          value={winner}
-          onChange={(e) => setWinner(e.target.value)}
-          className="w-full p-2 bg-gray-700 rounded"
-          required
+      <div className="flex space-x-4 mb-6 border-b border-gray-700 pb-4">
+        <button 
+          onClick={() => setActiveTab('racers')}
+          className={`px-4 py-2 rounded-lg ${activeTab === 'racers' ? 'bg-blue-600' : 'bg-gray-700'}`}
         >
-          <option value="">Select winner</option>
-          <option value="1">Max Verstappen</option>
-          <option value="2">Lewis Hamilton</option>
-        </select>
+          Racers
+        </button>
+        <button 
+          onClick={() => setActiveTab('winner')}
+          className={`px-4 py-2 rounded-lg ${activeTab === 'winner' ? 'bg-blue-600' : 'bg-gray-700'}`}
+        >
+          Declare Winner
+        </button>
+        <button 
+          onClick={() => setActiveTab('settings')}
+          className={`px-4 py-2 rounded-lg ${activeTab === 'settings' ? 'bg-blue-600' : 'bg-gray-700'}`}
+        >
+          Site Settings
+        </button>
       </div>
-      
-      <button
-        onClick={declareWinner}
-        className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
-      >
-        Declare Winner
-      </button>
-      
-      {message && <div className="mt-4 p-2 bg-gray-700 rounded">{message}</div>}
+
+      {activeTab === 'racers' && (
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Manage Racers</h3>
+          
+          <div className="mb-6 bg-gray-700 p-4 rounded-lg">
+            <h4 className="font-medium mb-2">Add New Racer</h4>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm mb-1">Name</label>
+                <input
+                  type="text"
+                  value={newRacer.name}
+                  onChange={(e) => setNewRacer({...newRacer, name: e.target.value})}
+                  className="w-full p-2 bg-gray-600 rounded"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Odds</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={newRacer.odds}
+                  onChange={(e) => setNewRacer({...newRacer, odds: parseFloat(e.target.value)})}
+                  className="w-full p-2 bg-gray-600 rounded"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1">Image</label>
+                <input
+                  type="file"
+                  onChange={(e) => setNewRacer({...newRacer, image: e.target.files[0]})}
+                  className="w-full p-1 bg-gray-600 rounded"
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={handleAddRacer}
+                  className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded w-full"
+                >
+                  Add Racer
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="text-left p-2">ID</th>
+                  <th className="text-left p-2">Name</th>
+                  <th className="text-left p-2">Odds</th>
+                  <th className="text-left p-2">Image</th>
+                  <th className="text-left p-2">Active</th>
+                  <th className="text-left p-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {racers.map(racer => (
+                  <tr key={racer.id} className="border-b border-gray-700">
+                    <td className="p-2">{racer.id}</td>
+                    <td className="p-2">
+                      <input
+                        type="text"
+                        value={racer.name}
+                        onChange={(e) => handleUpdateRacer(racer.id, { name: e.target.value })}
+                        className="w-full p-1 bg-gray-600 rounded"
+                      />
+                    </td>
+                    <td className="p-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={racer.odds}
+                        onChange={(e) => handleUpdateRacer(racer.id, { odds: parseFloat(e.target.value) })}
+                        className="w-full p-1 bg-gray-600 rounded"
+                      />
+                    </td>
+                    <td className="p-2">
+                      {racer.image_url && (
+                        <img src={racer.image_url} alt={racer.name} className="w-12 h-12 rounded-full object-cover" />
+                      )}
+                      <input
+                        type="file"
+                        onChange={(e) => handleUpdateRacer(racer.id, { image: e.target.files[0] })}
+                        className="w-full p-1 bg-gray-600 rounded mt-1"
+                      />
+                    </td>
+                    <td className="p-2">
+                      <select
+                        value={racer.is_active}
+                        onChange={(e) => handleUpdateRacer(racer.id, { is_active: e.target.value === 'true' })}
+                        className="bg-gray-600 rounded p-1"
+                      >
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                      </select>
+                    </td>
+                    <td className="p-2">
+                      <button
+                        onClick={() => handleUpdateRacer(racer.id, { is_active: !racer.is_active })}
+                        className={`px-2 py-1 rounded text-sm ${racer.is_active ? 'bg-yellow-600' : 'bg-green-600'}`}
+                      >
+                        {racer.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'winner' && (
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Declare Winner</h3>
+          <div className="mb-4">
+            <label className="block mb-2">Select Winner</label>
+            <select
+              value={winner}
+              onChange={(e) => setWinner(e.target.value)}
+              className="w-full p-2 bg-gray-700 rounded"
+            >
+              <option value="">-- Select Winner --</option>
+              {racers.filter(r => r.is_active).map(racer => (
+                <option key={racer.id} value={racer.id}>
+                  {racer.name} (x{racer.odds})
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={declareWinner}
+            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded"
+          >
+            Declare Winner
+          </button>
+        </div>
+      )}
+
+      {activeTab === 'settings' && (
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Site Settings</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-gray-700 p-4 rounded-lg">
+              <h4 className="font-medium mb-2">General Settings</h4>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm mb-1">Site Name</label>
+                  <input
+                    type="text"
+                    value={siteSettings.siteName}
+                    onChange={(e) => updateSetting('siteName', e.target.value)}
+                    className="w-full p-2 bg-gray-600 rounded"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Minimum Bet</label>
+                  <input
+                    type="number"
+                    value={siteSettings.minBet}
+                    onChange={(e) => updateSetting('minBet', e.target.value)}
+                    className="w-full p-2 bg-gray-600 rounded"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Minimum Deposit</label>
+                  <input
+                    type="number"
+                    value={siteSettings.minDeposit}
+                    onChange={(e) => updateSetting('minDeposit', e.target.value)}
+                    className="w-full p-2 bg-gray-600 rounded"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {message && (
+        <div className={`mt-4 p-3 rounded-lg ${
+          message.includes('success') ? 'bg-green-800' : 'bg-red-800'
+        }`}>
+          {message}
+        </div>
+      )}
     </div>
   );
 }
