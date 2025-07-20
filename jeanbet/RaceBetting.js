@@ -19,7 +19,7 @@ export default function RaceBetting({ onBetPlaced }) {
       const response = await axios.get('/api/racers');
       setRacers(response.data.racers);
     } catch (error) {
-      setMessage('Error loading racers');
+      setMessage('Error loading racers: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -31,7 +31,7 @@ export default function RaceBetting({ onBetPlaced }) {
       const response = await axios.get(`/api/balance/${userId}`);
       setBalance(response.data.balance || 0);
     } catch (error) {
-      setMessage('Error loading balance');
+      setMessage('Error loading balance: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -70,7 +70,7 @@ export default function RaceBetting({ onBetPlaced }) {
 
   const validateBet = () => {
     if (!selectedRacer) {
-      setMessage('Select a racer');
+      setMessage('Please select a racer');
       return false;
     }
     if (amount < 50) {
@@ -109,8 +109,15 @@ export default function RaceBetting({ onBetPlaced }) {
           {racers.filter(r => r.is_active).map(racer => (
             <div
               key={racer.id}
-              onClick={() => setSelectedRacer(racer.id)}
-              className={`p-3 rounded-lg border-2 transition-all ${selectedRacer === racer.id ? 'border-blue-500 bg-gray-700' : 'border-gray-600'}`}
+              onClick={() => {
+                setSelectedRacer(racer.id);
+                setMessage('');
+              }}
+              className={`p-3 rounded-lg border-2 transition-all cursor-pointer ${
+                selectedRacer === racer.id 
+                  ? 'border-blue-500 bg-gray-700' 
+                  : 'border-gray-600 hover:border-gray-500'
+              }`}
             >
               <div className="flex items-center">
                 {racer.image_url && (
@@ -118,7 +125,7 @@ export default function RaceBetting({ onBetPlaced }) {
                 )}
                 <div>
                   <div className="font-medium">{racer.name}</div>
-                  <div className="text-blue-400">x{racer.odds}</div>
+                  <div className="text-blue-400">x{racer.odds.toFixed(2)}</div>
                 </div>
               </div>
             </div>
@@ -140,13 +147,19 @@ export default function RaceBetting({ onBetPlaced }) {
       <button
         onClick={placeBet}
         disabled={isLoading || !selectedRacer || amount < 50 || amount > balance}
-        className={`w-full py-3 rounded-lg font-bold ${isLoading || !selectedRacer || amount < 50 || amount > balance ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+        className={`w-full py-3 rounded-lg font-bold ${
+          isLoading || !selectedRacer || amount < 50 || amount > balance 
+            ? 'bg-gray-600 cursor-not-allowed' 
+            : 'bg-blue-600 hover:bg-blue-700'
+        }`}
       >
         {isLoading ? 'Processing...' : 'Place Bet'}
       </button>
 
       {message && (
-        <div className={`mt-3 p-2 text-center rounded-lg ${message.includes('success') ? 'bg-green-800' : 'bg-red-800'}`}>
+        <div className={`mt-3 p-2 text-center rounded-lg ${
+          message.includes('success') ? 'bg-green-800' : 'bg-red-800'
+        }`}>
           {message}
         </div>
       )}

@@ -14,7 +14,11 @@ export default function BetHistory() {
       const userId = window.Telegram.WebApp.initDataUnsafe?.user?.id;
       if (!userId) return;
       
-      const response = await axios.get(`/api/bets/history?userId=${userId}`);
+      const response = await axios.get('/api/bets/history', {
+        headers: {
+          'Authorization': JSON.stringify(window.Telegram.WebApp.initDataUnsafe?.user)
+        }
+      });
       setBets(response.data.bets);
     } catch (error) {
       console.error('Error loading bets:', error);
@@ -42,7 +46,7 @@ export default function BetHistory() {
       ) : (
         <div className="space-y-3">
           {bets.map(bet => (
-            <div key={bet.id} className="p-3 bg-gray-700 rounded-lg fade-in">
+            <div key={bet.id} className="p-3 bg-gray-700 rounded-lg">
               <div className="flex justify-between items-start">
                 <div className="flex items-center">
                   {bet.racer_image && (
