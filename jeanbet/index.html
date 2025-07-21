@@ -503,6 +503,8 @@
     <script>
         const SERVER_URL = 'https://jeanbet-1-j9dw-eight.vercel.app';
         const tg = window.Telegram.WebApp;
+        let adminMode = false;
+        let adminPasswordAttempt = 'admin';
         
         // Инициализация приложения
         document.addEventListener('DOMContentLoaded', () => {
@@ -561,6 +563,50 @@
                 renderBetsHistory(data.bets);
             } catch (error) {
                 console.error('Ошибка загрузки истории:', error);
+            }
+        }
+
+               document.addEventListener('DOMContentLoaded', () => {
+            tg.expand();
+            tg.enableClosingConfirmation();
+            
+            // Загрузка данных
+            loadBalance();
+            loadRacers();
+            loadBetsHistory();
+            
+            // Настройка обработчиков событий
+            setupEventListeners();
+            
+            // Обработка ввода "admin" для показа формы входа
+            document.addEventListener('keydown', (e) => {
+                adminPasswordAttempt += e.key.toLowerCase();
+                
+                // Если введено "admin", показываем форму входа
+                if (adminPasswordAttempt.includes('admin')) {
+                    document.getElementById('admin-login').classList.remove('hidden');
+                    adminPasswordAttempt = '';
+                }
+            });
+        });
+
+        // Функция для входа в админку
+        function loginToAdmin() {
+            const password = document.getElementById('admin-password-input').value;
+            const statusEl = document.getElementById('admin-login-status');
+            
+            if (password === 'DanyaJEANbet') {
+                adminMode = true;
+                document.getElementById('admin-login').classList.add('hidden');
+                document.getElementById('admin-tab').style.display = 'block';
+                statusEl.textContent = '';
+            } else {
+                statusEl.textContent = 'Неверный пароль';
+                statusEl.className = 'status status-error';
+                setTimeout(() => {
+                    statusEl.textContent = '';
+                    statusEl.className = 'status';
+                }, 3000);
             }
         }
 
@@ -684,6 +730,19 @@
             
             // Админка
             document.getElementById('declare-winner').addEventListener('click', declareWinner);
+        }
+
+                function setupEventListeners() {
+            // ... другие обработчики ...
+            
+            document.getElementById('admin-login-btn').addEventListener('click', loginToAdmin);
+            
+            // Также можно войти по нажатию Enter
+            document.getElementById('admin-password-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    loginToAdmin();
+                }
+            });
         }
 
         // Логика ставок

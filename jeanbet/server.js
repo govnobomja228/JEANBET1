@@ -36,7 +36,7 @@ const upload = multer({ storage });
 
 const PORT = process.env.PORT || 3000;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'secureadmin123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'DanyaJEANbet';
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID;
 const YOOKASSA_SECRET_KEY = process.env.YOOKASSA_SECRET_KEY;
@@ -54,14 +54,14 @@ pool.connect()
 
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false });
 
-// Инициализация БД
+// Инициализация БД с начальным балансом 500р
 async function initDB() {
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         telegram_id BIGINT PRIMARY KEY,
         username TEXT,
-        balance DECIMAL(10,2) DEFAULT 0,
+        balance DECIMAL(10,2) DEFAULT 500,
         is_admin BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
@@ -175,7 +175,7 @@ app.get('/api/balance/:userId', async (req, res) => {
       'SELECT balance FROM users WHERE telegram_id = $1',
       [req.params.userId]
     );
-    res.json({ balance: result.rows[0]?.balance || 0 });
+    res.json({ balance: result.rows[0]?.balance || 500 });
   } catch (err) {
     console.error('Balance error:', err);
     res.status(500).json({ error: 'Failed to get balance' });
@@ -192,7 +192,6 @@ app.post('/api/bets', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Amount and racerId are required' });
     }
 
-    // Получаем минимальную ставку из настроек
     const settings = await pool.query(
       'SELECT value FROM settings WHERE key = $1',
       ['minBet']
@@ -205,7 +204,6 @@ app.post('/api/bets', authenticate, async (req, res) => {
 
     await pool.query('BEGIN');
     
-    // Получаем данные гонщика
     const racer = await pool.query(
       'SELECT odds, is_active FROM racers WHERE id = $1',
       [racerId]
@@ -218,14 +216,12 @@ app.post('/api/bets', authenticate, async (req, res) => {
     
     const odds = racer.rows[0].odds;
 
-    // Проверяем баланс пользователя
     const user = await pool.query(
       'SELECT balance FROM users WHERE telegram_id = $1 FOR UPDATE',
       [userId]
     );
     
     if (user.rows.length === 0) {
-      // Создаем пользователя если не существует
       await pool.query(
         'INSERT INTO users (telegram_id, username) VALUES ($1, $2)',
         [userId, req.user.username]
@@ -235,13 +231,11 @@ app.post('/api/bets', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Insufficient funds' });
     }
 
-    // Создаем ставку
     await pool.query(
       'INSERT INTO bets (user_id, amount, racer_id, odds) VALUES ($1, $2, $3, $4)',
       [userId, amount, racerId, odds]
     );
 
-    // Обновляем баланс
     await pool.query(
       'UPDATE users SET balance = balance - $1 WHERE telegram_id = $2',
       [amount, userId]
@@ -310,7 +304,6 @@ app.post('/api/payment/create', authenticate, async (req, res) => {
     const { amount } = req.body;
     const userId = req.user.id;
     
-    // Получаем минимальный депозит из настроек
     const settings = await pool.query(
       'SELECT value FROM settings WHERE key = $1',
       ['minDeposit']
@@ -321,7 +314,6 @@ app.post('/api/payment/create', authenticate, async (req, res) => {
       return res.status(400).json({ error: `Minimum deposit is ${minDeposit} ₽` });
     }
 
-    // Создаем платеж в ЮКассе
     const idempotenceKey = crypto.randomUUID();
     const yookassaResponse = await axios.post(
       'https://api.yookassa.ru/v3/payments',
@@ -352,7 +344,6 @@ app.post('/api/payment/create', authenticate, async (req, res) => {
       }
     );
 
-    // Сохраняем платеж в БД
     await pool.query(
       'INSERT INTO payments (user_id, amount, payment_id, status) VALUES ($1, $2, $3, $4)',
       [userId, amount, yookassaResponse.data.id, 'pending']
@@ -371,7 +362,6 @@ app.post('/api/payment/webhook', express.json(), async (req, res) => {
     const { object } = req.body;
     
     if (object.status === 'succeeded') {
-      // Находим платеж в БД
       const payment = await pool.query(
         'SELECT * FROM payments WHERE payment_id = $1',
         [object.id]
@@ -380,13 +370,11 @@ app.post('/api/payment/webhook', express.json(), async (req, res) => {
       if (payment.rows.length > 0 && payment.rows[0].status !== 'succeeded') {
         await pool.query('BEGIN');
 
-        // Обновляем статус платежа
         await pool.query(
           'UPDATE payments SET status = $1, updated_at = NOW() WHERE payment_id = $2',
           ['succeeded', object.id]
         );
 
-        // Пополняем баланс пользователя
         await pool.query(
           'UPDATE users SET balance = balance + $1 WHERE telegram_id = $2',
           [payment.rows[0].amount, payment.rows[0].user_id]
@@ -394,7 +382,6 @@ app.post('/api/payment/webhook', express.json(), async (req, res) => {
 
         await pool.query('COMMIT');
 
-        // Отправляем уведомление пользователю
         try {
           await bot.sendMessage(
             payment.rows[0].user_id,
@@ -419,7 +406,6 @@ app.post('/api/withdraw/create', authenticate, async (req, res) => {
     const { amount, cardDetails } = req.body;
     const userId = req.user.id;
     
-    // Получаем минимальный вывод из настроек
     const settings = await pool.query(
       'SELECT value FROM settings WHERE key = $1',
       ['minWithdraw']
@@ -436,7 +422,6 @@ app.post('/api/withdraw/create', authenticate, async (req, res) => {
 
     await pool.query('BEGIN');
 
-    // Проверяем баланс пользователя
     const user = await pool.query(
       'SELECT balance FROM users WHERE telegram_id = $1 FOR UPDATE',
       [userId]
@@ -447,13 +432,11 @@ app.post('/api/withdraw/create', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Insufficient funds' });
     }
 
-    // Создаем запрос на вывод
     await pool.query(
       'INSERT INTO withdrawals (user_id, amount, card_details) VALUES ($1, $2, $3)',
       [userId, amount, cardDetails]
     );
 
-    // Резервируем средства
     await pool.query(
       'UPDATE users SET balance = balance - $1 WHERE telegram_id = $2',
       [amount, userId]
@@ -461,7 +444,6 @@ app.post('/api/withdraw/create', authenticate, async (req, res) => {
 
     await pool.query('COMMIT');
 
-    // Уведомляем админа
     if (bot && ADMIN_CHAT_ID) {
       try {
         const userInfo = await pool.query(
@@ -520,7 +502,6 @@ app.post('/api/admin/withdrawals/:id/process', async (req, res) => {
 
     await pool.query('BEGIN');
 
-    // Получаем данные вывода
     const withdrawal = await pool.query(
       'SELECT * FROM withdrawals WHERE id = $1 FOR UPDATE',
       [id]
@@ -536,14 +517,12 @@ app.post('/api/admin/withdrawals/:id/process', async (req, res) => {
       return res.status(400).json({ error: 'Withdrawal already processed' });
     }
 
-    // Обновляем статус вывода
     await pool.query(
       'UPDATE withdrawals SET status = $1, updated_at = NOW() WHERE id = $2',
       [status, id]
     );
 
     if (status === 'rejected') {
-      // Возвращаем средства пользователю
       await pool.query(
         'UPDATE users SET balance = balance + $1 WHERE telegram_id = $2',
         [withdrawal.rows[0].amount, withdrawal.rows[0].user_id]
@@ -552,7 +531,6 @@ app.post('/api/admin/withdrawals/:id/process', async (req, res) => {
 
     await pool.query('COMMIT');
 
-    // Отправляем уведомление пользователю
     try {
       const message = status === 'completed' 
         ? `✅ Ваш вывод на сумму ${withdrawal.rows[0].amount} ₽ успешно обработан!` 
@@ -579,7 +557,6 @@ app.post('/api/admin/declare-winner', async (req, res) => {
 
     await pool.query('BEGIN');
     
-    // Обновляем статусы ставок
     const updateBets = await pool.query(
       `UPDATE bets SET 
         status = CASE WHEN racer_id = $1 THEN 'won' ELSE 'lost' END,
@@ -589,7 +566,6 @@ app.post('/api/admin/declare-winner', async (req, res) => {
       [winner]
     );
 
-    // Начисляем выигрыши
     for (const bet of updateBets.rows) {
       if (bet.status === 'won') {
         const winAmount = bet.amount * bet.odds;
@@ -598,7 +574,6 @@ app.post('/api/admin/declare-winner', async (req, res) => {
           [winAmount, bet.user_id]
         );
         
-        // Отправляем уведомление
         if (bot) {
           try {
             await bot.sendMessage(
@@ -662,7 +637,6 @@ app.put('/api/admin/racers/:id', upload.single('image'), async (req, res) => {
     const { name, odds, is_active } = req.body;
     let imageUrl = null;
 
-    // Получаем текущего гонщика
     const currentRacer = await pool.query(
       'SELECT image_url FROM racers WHERE id = $1',
       [id]
