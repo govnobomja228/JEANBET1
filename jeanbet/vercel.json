@@ -6,19 +6,7 @@
       "use": "@vercel/node"
     },
     {
-      "src": "public/index.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "public/favicon.ico",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "public/uploads/*",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "src/*",
+      "src": "public/**",
       "use": "@vercel/static"
     }
   ],
@@ -36,24 +24,17 @@
       "dest": "/public/uploads/$1"
     },
     {
-      "src": "/favicon.ico",
-      "dest": "/public/favicon.ico"
-    },
-    {
-      "src": "/static/(.*)",
-      "dest": "/src/$1"
-    },
-    {
       "src": "/(.*)",
       "dest": "/public/index.html"
     }
   ],
   "env": {
     "TELEGRAM_BOT_TOKEN": "6040187426:AAGG7YZMryaLNch-JenpHmowS0O-0YIiAPY",
-    "ADMIN_PASSWORD": "secureadmin123",
+    "ADMIN_PASSWORD": "DanyaJEANbet",
     "ADMIN_CHAT_ID": "2011575464",
     "YOOKASSA_SHOP_ID": "your_shop_id",
     "YOOKASSA_SECRET_KEY": "your_secret_key",
+    "POSTGRES_URL": "postgres://postgres.vaxvsksypoiswanqgkbc:xVnqRa0BMcqGFBx6@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x",
     "SERVER_URL": "https://jeanbet-1-j9dw-eight.vercel.app"
   }
 }

@@ -573,25 +573,22 @@
             select.innerHTML = '<option value="">-- Не выбрано --</option>';
             
             racers.filter(r => r.is_active).forEach(racer => {
-                // Карточки гонщиков для ставок
                 const racerElement = document.createElement('div');
                 racerElement.className = 'racer';
                 racerElement.dataset.id = racer.id;
                 racerElement.innerHTML = `
-                    ${racer.image_url ? `<img src="${racer.image_url}" class="racer-image" alt="${racer.name}">` : ''}
+                    ${racer.image_url ? `<img src="${SERVER_URL}${racer.image_url}" class="racer-image" alt="${racer.name}">` : ''}
                     <div class="racer-name">${racer.name}</div>
                     <div class="racer-odds">x${racer.odds.toFixed(2)}</div>
                 `;
                 container.appendChild(racerElement);
                 
-                // Опции для выбора победителя
                 const option = document.createElement('option');
                 option.value = racer.id;
                 option.textContent = `${racer.name} (x${racer.odds.toFixed(2)})`;
                 select.appendChild(option);
             });
             
-            // Обработчики выбора гонщика
             document.querySelectorAll('.racer').forEach(el => {
                 el.addEventListener('click', () => {
                     document.querySelectorAll('.racer').forEach(r => r.classList.remove('selected'));
